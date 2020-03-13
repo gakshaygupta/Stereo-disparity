@@ -100,7 +100,7 @@ def main_train():
                         , index = parameters["index"]
                         , pr_filters = parameters["pr_filters"]))          #parms to be filled
     add_optimizer(U,[Up_to_Down])
-    DispNet_ = DispNet(D, U, device=device)
+    DispNet_ = device(DispNet(D, U))
     #dataset
     DispNet_trainer = Trainer(Data_Generator = data["training"]
                             , optimizers = Up_to_Down
@@ -109,9 +109,9 @@ def main_train():
                             ,batch_size = args.batch_size)
     trainers = [DispNet_trainer]
     def save_models(name,step):
-        torch.save(DispNet_, '{0}.{1}.DispNet_step_size_{2}.pth'.format(name, args.save,step))
-        torch.save(D, '{0}.{1}.Down_step_size_{2}.pth'.format(name, args.save,step))
-        torch.save(U, '{0}.{1}.UP_step_size_{2}.pth'.format(name, args.save,step))
+        torch.save(DispNet_, '{0}{1}:DispNet_step_size_{2}.pth'.format(name, args.save,step))
+        torch.save(D, '{0}{1}:Down_step_size_{2}.pth'.format(name, args.save,step))
+        torch.save(U, '{0}{1}:UP_step_size_{2}.pth'.format(name, args.save,step))
 
     def training(loggers): # this may be used as intput to the swamp tpu
         for steps in range(1, args.iterations + 1):
@@ -141,27 +141,26 @@ class Trainer:
         self.IO_time = 0
         self.forward_time = 0
         self.backward_time = 0
-        self.which = 0
+        self.which = len(self.schedule_coeff)
+        self.l = len(self.schedule_coeff)
+        self.i = 0
 
     def step(self,curr):
+        #selects the loss
+        if self.schedule_coeff[self.i][0]<curr:
+            self.i = self.i+1
+        self.which = self.l-self.i
         for optimizer in self.optimizers:
             optimizer.zero_grad()
         t = time()
         data = self.Data_Generator.next_batch()
         self.IO_time += time() - t
         t = time()
-        loss = self.Network.score(input = data[0], output = data[1], train = True)
+        loss = self.schedule_coeff[self.i]*self.Network.score(input = data[0], output = data[1], which=self.which, train = True)
         self.forward_time += time() - t
-        tot_loss = 0
-        length = len(loss)
-        for i,l in enumerate(loss):
-            if self.schedule_coeff[i][0]>=curr:
-                tot_loss = self.schedule_coeff[i][1]*l
-                self.EPE = self.schedule_coeff[i][1]*l.item()
-                self.which = length-i
-                break
+
         t = time()
-        tot_loss.backward()
+        loss.backward()
         for optimizer in self.optimizers:
              xm.optimizer_step(optimizer, barrier=True)
         self.backward_time += time() - t

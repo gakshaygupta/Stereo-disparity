@@ -39,12 +39,8 @@ class Dataset(data.Dataset):
         X_left, X_right = self.normalizer(np.transpose(self.resize(read(input_left_ID),(768,384)), (2, 0, 1))), self.normalizer(np.transpose(self.resize(read(input_right_ID),(768,384)), (2, 0, 1)))
         #y_left = self.normalizer(read(output_left_ID))
         y_right = self.normalizer(read(output_right_ID))
-        res = [(12,6),(24,12),(48,24),(96,48),(192,96),(384,192)]
-        y_right_set = []
-        for i in res:
-            y_right_set.append(self.resize(y_right,i))
         X = np.concatenate((X_left, X_right),axis=0)
-        return X, y_right_set
+        return X, y_right
 
 def path_gen(path,paths):
     new_paths = []
