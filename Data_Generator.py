@@ -37,7 +37,7 @@ class Dataset(data.Dataset):
         # Load data and get label
 
         X_left, X_right = self.normalizer(np.transpose(self.resize(read(input_left_ID),(768,384)), (2, 0, 1))), self.normalizer(np.transpose(self.resize(read(input_right_ID),(768,384)), (2, 0, 1)))
-        y_left = self.normalizer(read(output_left_ID))
+        #y_left = self.normalizer(read(output_left_ID))
         y_right = self.normalizer(read(output_right_ID))
         res = [(12,6),(24,12),(48,24),(96,48),(192,96),(384,192)]
         y_right_set = []

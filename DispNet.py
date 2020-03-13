@@ -9,6 +9,7 @@ class DispNet(nn.Module):
         super().__init__()
         self.D = down
         self.U = up
+        self.avgpool2d = torch.nn.AvgPool2d()
         self.BCE_criterion = nn.BCELoss(size_average=False)
         self.MSE = torch.nn.MSELoss(size_average=None, reduce=None, reduction='mean')
         self.device = device
@@ -27,11 +28,12 @@ class DispNet(nn.Module):
     def L2(self,input,target):
         return self.MSE(input,target)
 
-    def score(self, input, output, train=False):
+    def resize(self,input,factor,reduce=True):
+        return F.interpolate(input.unsqueez(1), size=None, scale_factor=1/factor if reduce else factor, mode='bilinear', align_corners=None).clamp(min=0, max=1).squeez(1)
+
+    def score(self, input, output, index=6, l=6, train=False):
         self._train(train)
         intermediate = self.D(self.device(input))
-        prob_output = self.U(intermediate)
-        loss = []
-        for o,prob_o in zip(output,prob_output):
-            loss.append(self.EPE(self.device(o),prob_o))  #mean square or BCE
-        return loss
+        prob_output = self.U(intermediate, index) #B*H*W
+        output = self.resize(output,factor= 2**(l-index))
+        return self.EPE(self.device(output),prob_output)

@@ -31,17 +31,16 @@ class Up_Conv(nn.Module):
             self.i_conv_list = nn.ModuleList([conv(x[1], i_stride, x[0][0], x[0][1],padding = 1) for x in zip(self.in_out_i,i_kernels)])
             self.prl_list = nn.ModuleList([pre_disp(x[1],x[0],stride = pr_stride, padding = 1) for x in zip(pr_kernels,pr_filters)])
 
-    def forward(self,down_out):
-            # for i in down_out:
-            #     print(i.shape)
+    def forward(self,down_out,index):
             prob6 = self.prl_list[0](down_out[-1])
             final_list = list(zip(self.up_conv_list,self.i_conv_list,self.prl_list[1:]))
-            out = [prob6]
+            out = prob6
             in_ = down_out[-1]
             for i,l in enumerate(final_list):
+                if i==(index-1):
+                    break
                 # print(interpolate(out[-1]).shape,out[-1].shape ,l[0](in_).shape,down_out[self.index[i]].shape,i)
-                in_ = l[1](torch.cat([interpolate(out[-1]),l[0](in_),down_out[self.index[i]]],1))
-                out.append(l[2](in_))
-            for i in range(0,len(out)):
-                out[i] = out[i].squeeze(1)
+                in_ = l[1](torch.cat([interpolate(out),l[0](in_),down_out[self.index[i]]],1))
+                out = l[2](in_)
+            out = out.squeeze(1)
             return out
