@@ -7,6 +7,7 @@ from IO import *
 import cv2
 import torch_xla
 import torch_xla.core.xla_model as xm
+import torch_xla.distributed.parallel_loader as pl
 
 class Dataset(data.Dataset):
   'Characterizes a dataset for PyTorch'
@@ -49,13 +50,23 @@ def path_gen(path,paths):
     return new_paths
 
 class Data_Generator():
-    def __init__(self,Dataset, params):
+    def __init__(self,Dataset, params, tpu, device):
         self.Dataset = Dataset
-        self.loader = data.DataLoader(self.Dataset,**params)
-        self.generator = iter(self.loader)
+        self.device = device
+        self.tpu = tpu
+        if self.tpu:
+            self.loader = pl.ParallelLoader(data.DataLoader(self.Dataset,**params), [self.device])
+            self.generator = iter(self.loader.per_device_loader(self.device))
+        else:
+            self.loader = data.DataLoader(self.Dataset,**params)
+            self.generator = iter(self.loader)
+
     def next_batch(self):
         try:
             return next(self.generator)
         except StopIteration:
-            self.generator = iter(self.loader)
+            if self.tpu:
+                self.generator = iter(self.loader.per_device_loader(self.device))
+            else:
+                self.generator = iter(self.loader)
             return next(self.generator)
