@@ -100,7 +100,7 @@ def main_train():
                         , index = parameters["index"]
                         , pr_filters = parameters["pr_filters"]))          #parms to be filled
     add_optimizer(U,[Up_to_Down])
-    DispNet_ = device(DispNet(D, U))
+    DispNet_ = device(DispNet(D, U,device))
     #dataset
     DispNet_trainer = Trainer(Data_Generator = data["training"]
                             , optimizers = Up_to_Down
@@ -156,7 +156,8 @@ class Trainer:
         data = self.Data_Generator.next_batch()
         self.IO_time += time() - t
         t = time()
-        loss = self.schedule_coeff[self.i]*self.Network.score(input = data[0], output = data[1], which=self.which, train = True)
+        loss = self.Network.score(input = data[0], output = data[1], which=self.which, lp=self.i+1, train = True).mul(self.schedule_coeff[self.i][1])
+        self.EPE+= loss.item()
         self.forward_time += time() - t
 
         t = time()
@@ -188,7 +189,7 @@ class Logger:
             print("{0}".format(self.name))
 
         if self.trainer is not None:
-            loss = self.trainer.EPE
+            loss = self.trainer.EPE/self.log_interval
             io_time = self.trainer.IO_time
             forward_time = self.trainer.forward_time
             backward_time = self.trainer.backward_time

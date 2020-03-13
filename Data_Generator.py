@@ -38,7 +38,7 @@ class Dataset(data.Dataset):
 
         X_left, X_right = self.normalizer(np.transpose(self.resize(read(input_left_ID),(768,384)), (2, 0, 1))), self.normalizer(np.transpose(self.resize(read(input_right_ID),(768,384)), (2, 0, 1)))
         #y_left = self.normalizer(read(output_left_ID))
-        y_right = self.normalizer(read(output_right_ID))
+        y_right = self.resize(self.normalizer(read(output_right_ID)),(384,192))
         X = np.concatenate((X_left, X_right),axis=0)
         return X, y_right
 
