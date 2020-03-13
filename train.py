@@ -8,7 +8,7 @@ from parameters import parameters
 from Data_Generator import *
 import torch_xla
 import torch_xla.core.xla_model as xm
-from torch.utils.data.distributed import DistributedSampler
+
 # import devices
 
 def main_train(index, args):
@@ -40,32 +40,21 @@ def main_train(index, args):
             direction.append(optimizer)
         return optimizer
     #Datasets
-    train_dataset =Dataset(input_left = args.real_left
-            ,input_right = args.real_right, output_left = args.disp_left
-            , output_right = args.disp_right)
-
-    val_dataset = Dataset(input_left = args.real_left_v
-            ,input_right = args.real_right_v, output_left = args.disp_left_v
-            , output_right = args.disp_right_v)
-
-    train_sampler = torch.utils.data.distributed.DistributedSampler(
-    train_dataset,
-    num_replicas=xm.xrt_world_size(),
-    rank=xm.get_ordinal(),
-    shuffle=True)
     params_training = {'batch_size': args.batch_size,
-          'shuffle': False,
-          'sampler': train_sampler,
+          'shuffle': True,
           'num_workers': args.num_workers,
           'drop_last': True }
     params_validation = {'batch_size': args.batch_size_v,
-          'shuffle': False,
-          'sampler': val_sampler,
+          'shuffle': True,
           'num_workers':  args.num_workers,
           'drop_last': True }
-    data = {"training":Data_Generator(train_dataset,params_training,tpu=args.tpu,device= dev if args.tpu else None)}
+    data = {"training":Data_Generator(Dataset(input_left = args.real_left
+            ,input_right = args.real_right, output_left = args.disp_left
+            , output_right = args.disp_right),params_training,tpu=args.tpu,device= dev if args.tpu else None)}
     if args.validation:
-        data["validation"] = Data_Generator(val_dataset,params_validation,tpu=args.tpu,device= dev if args.tpu else None)
+        data["validation"] = Data_Generator(Dataset(input_left = args.real_left_v
+                ,input_right = args.real_right_v, output_left = args.disp_left_v
+                , output_right = args.disp_right_v),params_validation,tpu=args.tpu,device= dev if args.tpu else None)
     # model
     D = device(Down_Convolution(num_filters = parameters["num_filters"]
                                 , kernels = parameters["kernels"]
