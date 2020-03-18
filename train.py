@@ -12,6 +12,7 @@ import torch_xla.core.xla_model as xm
 # import devices
 
 def main_train(index, args):
+    print("Running main on TPU:{}".format(index))
     torch.manual_seed(1)
     try:
         dev = xm.xla_device()
@@ -145,11 +146,12 @@ class Trainer:
 
 class Logger:
 
-    def __init__(self,name, trainer, log_interval, validators = ()):
+    def __init__(self,name, trainer, log_interval, validators = (), TPU_index = None):
         self.trainer = trainer
         self.validators = validators
         self.log_interval = log_interval
         self.name = name
+        self.TPU_index = TPU_index
 
     def log(self):
 
@@ -168,7 +170,7 @@ class Logger:
         for id, validator in enumerate(self.validators):
             t = time()
             EPE = validator.EPE
-            validator.reset_stats()
+            validator.reset_stats()         #might need to change
             print(" - Validator_EPE: {0:10.2f}   total_time:({1:.2f}s)".format(EPE,time()-t))
 
 class Validator:

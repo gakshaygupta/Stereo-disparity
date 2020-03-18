@@ -52,6 +52,7 @@ if __name__ == '__main__':
     # Parse arguments
     args = parser.parse_args()
     if args.tpu:
-        xmp.spawn(train.main_train, args=(args,), nprocs=args.num_cores, start_method='fork')
+        print("tpu enabled")
+        xmp.spawn(train.main_train, args=(args,), nprocs=args.num_cores)#, start_method='fork')
     else:
-        train.main_train(args)
+        train.main_train(0,args)
