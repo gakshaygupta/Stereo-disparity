@@ -96,7 +96,9 @@ def main_train(index, args):
     #defining loggers
     DispNet_logger = Logger("DispNet", DispNet_trainer, log_interval = args.log_interval)
     #starting training
+    start = time()
     training(loggers = [DispNet_logger]) #loggers to be defined
+    print("Total training time taken:{.2f}s".format(time()-start))
 
 class Trainer:
 
