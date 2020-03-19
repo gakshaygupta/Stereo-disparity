@@ -128,11 +128,10 @@ class Trainer:
         self.IO_time += time() - t
         t = time()
         loss = self.Network.score(input = data[0], output = data[1], which=self.which, lp=self.i+1, train = True).mul(self.schedule_coeff[self.i][1])
-        self.EPE+= loss.item()
         self.forward_time += time() - t
-
         t = time()
         loss.backward()
+        self.EPE+= loss.item()
         for optimizer in self.optimizers:
              xm.optimizer_step(optimizer)#, barrier=True)
         self.backward_time += time() - t

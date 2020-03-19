@@ -40,6 +40,7 @@ class Up_Conv(nn.Module):
                 if i==(index-1):
                     break
                 # print(interpolate(out[-1]).shape,out[-1].shape ,l[0](in_).shape,down_out[self.index[i]].shape,i)
+                out.detach()
                 in_ = l[1](torch.cat([interpolate(out),l[0](in_),down_out[self.index[i]]],1))
                 out = l[2](in_)
             out = out.squeeze(1)
