@@ -56,17 +56,20 @@ class Data_Generator():
         self.tpu = tpu
         if self.tpu:
             self.loader = pl.ParallelLoader(data.DataLoader(self.Dataset,**params), [self.device])
-            self.generator = iter(self.loader.per_device_loader(self.device))
+            self.generator = self.loader.per_device_loader(self.device)
         else:
             self.loader = data.DataLoader(self.Dataset,**params)
-            self.generator = iter(self.loader)
+            self.generator = self.loader
 
     def next_batch(self):
-        try:
-            return next(self.generator)
-        except StopIteration:
-            if self.tpu:
-                self.generator = iter(self.loader.per_device_loader(self.device))
-            else:
-                self.generator = iter(self.loader)
-            return next(self.generator)
+        for i,data in enumerate(self.generator):
+            yield data
+
+        # try:
+        #     return next(self.generator)
+        # except StopIteration:
+        #     if self.tpu:
+        #         self.generator = iter(self.loader.per_device_loader(self.device))
+        #     else:
+        #         self.generator = iter(self.loader)
+        #     return next(self.generator)

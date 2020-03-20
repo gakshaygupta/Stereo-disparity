@@ -32,7 +32,7 @@ def main_train(index, args):
     # optimizer list
     Up_to_Down = []
     # Method which creates a module optimizer and add it to the given list
-    def add_optimizer(module,model_optimizers=()):
+    def add_optimizer(module,model_optimizers=()): #needs a change for lr tpu
         if args.param_init != 0.0:
             for param in module.parameters():
                 param.data.uniform_(-args.param_init, args.param_init)
@@ -40,18 +40,32 @@ def main_train(index, args):
         for direction in model_optimizers:
             direction.append(optimizer)
         return optimizer
+    #Dataset
+    train_data =  Dataset(input_left = args.real_left
+            ,input_right = args.real_right, output_left = args.disp_left
+            , output_right = args.disp_right)
+    # data Sampler
+    if args.tpu:
+        world_size = xm.xrt_world_size()
+        train_sampler = torch.utils.data.distributed.DistributedSampler(
+            train_dataset,
+            num_replicas=world_size,
+            rank=xm.get_ordinal(),
+            shuffle=True)
+    else:
+        world_size = 1
+        train_sampler = None
     #Datasets
     params_training = {'batch_size': args.batch_size,
-          'shuffle': True,
+          'shuffle': not args.tpu,
           'num_workers': args.num_workers,
-          'drop_last': True }
+          'drop_last': True,
+          "sampler":train_sampler}
     params_validation = {'batch_size': args.batch_size_v,
-          'shuffle': True,
+          'shuffle': True ,
           'num_workers':  args.num_workers,
           'drop_last': True }
-    data = {"training":Data_Generator(Dataset(input_left = args.real_left
-            ,input_right = args.real_right, output_left = args.disp_left
-            , output_right = args.disp_right),params_training,tpu=args.tpu,device= dev if args.tpu else None)}
+    data = {"training":Data_Generator(train_data,params_training,tpu=args.tpu,device= dev if args.tpu else None)}
     if args.validation:
         data["validation"] = Data_Generator(Dataset(input_left = args.real_left_v
                 ,input_right = args.real_right_v, output_left = args.disp_left_v
@@ -115,7 +129,7 @@ class Trainer:
         self.which = len(self.schedule_coeff)
         self.l = len(self.schedule_coeff)
         self.i = 0
-
+        self.data = self.Data_Generator.next_batch()
     def step(self,curr):
         #selects the loss
         if self.schedule_coeff[self.i][0]<curr:
@@ -124,14 +138,19 @@ class Trainer:
         for optimizer in self.optimizers:
             optimizer.zero_grad()
         t = time()
-        data = self.Data_Generator.next_batch()
+        try:
+            data = next(self.data)
+        except:
+            self.data = self.Data_Generator.next_batch()
+            data = next(self.data)
+
         self.IO_time += time() - t
         t = time()
         loss = self.Network.score(input = data[0], output = data[1], which=self.which, lp=self.i+1, train = True).mul(self.schedule_coeff[self.i][1])
         self.forward_time += time() - t
         t = time()
         loss.backward()
-        self.EPE+= loss.item()
+        #self.EPE+= 0#loss.item()
         for optimizer in self.optimizers:
              xm.optimizer_step(optimizer)#, barrier=True)
         self.backward_time += time() - t
