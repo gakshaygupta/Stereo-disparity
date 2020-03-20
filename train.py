@@ -41,7 +41,7 @@ def main_train(index, args):
             direction.append(optimizer)
         return optimizer
     #Dataset
-    train_data =  Dataset(input_left = args.real_left
+    train_dataset =  Dataset(input_left = args.real_left
             ,input_right = args.real_right, output_left = args.disp_left
             , output_right = args.disp_right)
     # data Sampler
@@ -55,7 +55,7 @@ def main_train(index, args):
     else:
         world_size = 1
         train_sampler = None
-    #Datasets
+    #Dataset loader
     params_training = {'batch_size': args.batch_size,
           'shuffle': not args.tpu,
           'num_workers': args.num_workers,
@@ -65,7 +65,7 @@ def main_train(index, args):
           'shuffle': True ,
           'num_workers':  args.num_workers,
           'drop_last': True }
-    data = {"training":Data_Generator(train_data,params_training,tpu=args.tpu,device= dev if args.tpu else None)}
+    data = {"training":Data_Generator(train_dataset,params_training,tpu=args.tpu,device= dev if args.tpu else None)}
     if args.validation:
         data["validation"] = Data_Generator(Dataset(input_left = args.real_left_v
                 ,input_right = args.real_right_v, output_left = args.disp_left_v
