@@ -2,14 +2,15 @@ import torch.nn.functional as F
 import torch
 import numpy as np
 import os
-from torch.utils import data
+import torch.utils.data as data_util
 from IO import *
 import cv2
 import torch_xla
 import torch_xla.core.xla_model as xm
 import torch_xla.distributed.parallel_loader as pl
-
-class Dataset(data.Dataset):
+import numpy as np
+import timeit  #may not use in future
+class Dataset(data_util.Dataset):
   'Characterizes a dataset for PyTorch'
 
   def __init__(self, input_left, input_right,output_left,output_right):
@@ -41,6 +42,12 @@ class Dataset(data.Dataset):
         #y_left = self.normalizer(read(output_left_ID))
         y_right = self.resize(self.normalizer(read(output_right_ID)),(384,192))
         X = np.concatenate((X_left, X_right),axis=0)
+        if is_null(X):
+            print('null value on index:{}'.format(input_left_ID))
+            assert False
+        if is_null(y_right):
+            print('null value on index:{}'.format(input_left_ID))
+            assert False
         return X, y_right
 
 def path_gen(path,paths):
@@ -48,22 +55,24 @@ def path_gen(path,paths):
     for i in paths:
         new_paths.append(os.path.join(path,i))
     return new_paths
-
+def  is_null(a):
+        np.isnan(a).any()
 class Data_Generator():
     def __init__(self,Dataset, params, tpu, device):
         self.Dataset = Dataset
         self.device = device
         self.tpu = tpu
+        self.Data_loader = data_util.DataLoader(self.Dataset,**params)
+    def reset_generator(self):
         if self.tpu:
-            self.loader = pl.ParallelLoader(data.DataLoader(self.Dataset,**params), [self.device])
+            self.loader = pl.ParallelLoader(self.Data_loader, [self.device])
             self.generator = self.loader.per_device_loader(self.device)
         else:
-            self.loader = data.DataLoader(self.Dataset,**params)
+            self.loader = self.Data_loader
             self.generator = self.loader
-
     def next_batch(self):
-        for i,data in enumerate(self.generator):
-            yield data
+        for i,k in enumerate(self.generator):
+            yield k
 
         # try:
         #     return next(self.generator)

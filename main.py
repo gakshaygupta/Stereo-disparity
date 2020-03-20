@@ -36,7 +36,7 @@ if __name__ == '__main__':
     # Logging/validation
     logging_group = parser.add_argument_group('logging', 'Logging and validation arguments')
     logging_group.add_argument('--log_interval', type=int, default=1000, help='log at this interval (defaults to 1000)')
-    logging_group.add_argument('--validation' , default=False, help='use validation dataset for validation ')
+    logging_group.add_argument('--validation' , default=False, action='store_true', help='use validation dataset for validation ')
     logging_group.add_argument('--real_left_v', help='The location of the folder containing the left real images.')
     logging_group.add_argument('--real_right_v', help='The location of the folder containing the right real images.')
     logging_group.add_argument('--disp_left_v', help='The location of the folder containing the left disparity map')  #edit
@@ -46,6 +46,7 @@ if __name__ == '__main__':
     # TPU related Arguments
     tpu_group = parser.add_argument_group("TPU","Arguments for TPU training")
     tpu_group.add_argument("--num_cores", type = int, default=8, help="Defines the number of TPU cores to use")
+    tpu_group.add_argument("--distributed", default=False, action='store_true', help="use distributed sampler")
     # Other
     parser.add_argument('--cuda', default=False, action='store_true', help='use cuda')
     parser.add_argument('--tpu', default=False, action='store_true', help='use tpu')

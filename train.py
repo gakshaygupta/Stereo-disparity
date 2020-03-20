@@ -45,7 +45,7 @@ def main_train(index, args):
             ,input_right = args.real_right, output_left = args.disp_left
             , output_right = args.disp_right)
     # data Sampler
-    if args.tpu:
+    if args.tpu and args.distributed:
         world_size = xm.xrt_world_size()
         train_sampler = torch.utils.data.distributed.DistributedSampler(
             train_dataset,
@@ -57,7 +57,7 @@ def main_train(index, args):
         train_sampler = None
     #Dataset loader
     params_training = {'batch_size': args.batch_size,
-          'shuffle': not args.tpu,
+          'shuffle': not train_sampler,
           'num_workers': args.num_workers,
           'drop_last': True,
           "sampler":train_sampler}
@@ -129,6 +129,7 @@ class Trainer:
         self.which = len(self.schedule_coeff)
         self.l = len(self.schedule_coeff)
         self.i = 0
+        self.Data_Generator.reset_generator()
         self.data = self.Data_Generator.next_batch()
     def step(self,curr):
         #selects the loss
@@ -140,10 +141,10 @@ class Trainer:
         t = time()
         try:
             data = next(self.data)
-        except:
+        except StopIteration:
+            self.Data_Generator.reset_generator()
             self.data = self.Data_Generator.next_batch()
             data = next(self.data)
-
         self.IO_time += time() - t
         t = time()
         loss = self.Network.score(input = data[0], output = data[1], which=self.which, lp=self.i+1, train = True).mul(self.schedule_coeff[self.i][1])
