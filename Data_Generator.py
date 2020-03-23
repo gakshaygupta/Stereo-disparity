@@ -42,12 +42,12 @@ class Dataset(data_util.Dataset):
         #y_left = self.normalizer(read(output_left_ID))
         y_right = self.resize(self.normalizer(read(output_right_ID)),(384,192))
         X = np.concatenate((X_left, X_right),axis=0)
-        if is_null(X):
-            print('null value on index:{}'.format(input_left_ID))
-            assert False
-        if is_null(y_right):
-            print('null value on index:{}'.format(input_left_ID))
-            assert False
+        # if is_null(X):                                              #for debugging
+        #     print('null value on index:{}'.format(input_left_ID))
+        #     assert False
+        # if is_null(y_right):
+        #     print('null value on index:{}'.format(input_left_ID))   #for debugging
+        #     assert False
         return X, y_right
 
 def path_gen(path,paths):

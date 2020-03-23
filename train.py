@@ -13,7 +13,7 @@ import torch_xla.core.xla_model as xm
 
 def main_train(index, args):
     print("Running main on TPU:{}".format(index))
-    torch.manual_seed(1)
+    torch.manual_seed(2)
     try:
         dev = xm.xla_device()
     except:
@@ -36,7 +36,7 @@ def main_train(index, args):
         if args.param_init != 0.0:
             for param in module.parameters():
                 param.data.uniform_(-args.param_init, args.param_init)
-        optimizer = torch.optim.Adam(module.parameters(), lr=args.learning_rate)
+        optimizer = torch.optim.SGD(module.parameters(), lr=args.learning_rate)
         for direction in model_optimizers:
             direction.append(optimizer)
         return optimizer
@@ -112,7 +112,7 @@ def main_train(index, args):
     #starting training
     start = time()
     training(loggers = [DispNet_logger]) #loggers to be defined
-    print("Total training time taken:{.2f}s".format(time()-start))
+    print("Total training time taken:{0:.2f}s".format(time()-start))
 
 class Trainer:
 
@@ -151,9 +151,9 @@ class Trainer:
         self.forward_time += time() - t
         t = time()
         loss.backward()
-        #self.EPE+= 0#loss.item()
+        self.EPE+= loss.detach()
         for optimizer in self.optimizers:
-             xm.optimizer_step(optimizer)#, barrier=True)
+            xm.optimizer_step(optimizer)#, barrier=True)
         self.backward_time += time() - t
 
     def total_time(self):
@@ -180,7 +180,7 @@ class Logger:
             print("{0}".format(self.name))
 
         if self.trainer is not None:
-            loss = self.trainer.EPE/self.log_interval
+            loss = self.trainer.EPE.item()/self.log_interval
             io_time = self.trainer.IO_time
             forward_time = self.trainer.forward_time
             backward_time = self.trainer.backward_time
