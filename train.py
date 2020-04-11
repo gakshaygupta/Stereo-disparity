@@ -1,14 +1,16 @@
 import torch
-from down_conv import *
-from up_convolution import *
-from DispNet import *
+from encoders import *
+from depth import *
+from Models import *
 from time import time
 from IO import *
 from parameters import parameters
 from Data_Generator import *
-import torch_xla
-import torch_xla.core.xla_model as xm
-
+try:
+    import torch_xla
+    import torch_xla.core.xla_model as xm
+except ImportError:
+    pass
 # import devices
 
 def main_train(index, args):
@@ -32,11 +34,11 @@ def main_train(index, args):
     # optimizer list
     Up_to_Down = []
     # Method which creates a module optimizer and add it to the given list
-    def add_optimizer(module,model_optimizers=()): #needs a change for lr tpu
+    def add_optimizer(module,model_optimizers=(),num_workers = 1): #needs a change for lr tpu
         if args.param_init != 0.0:
             for param in module.parameters():
                 param.data.uniform_(-args.param_init, args.param_init)
-        optimizer = torch.optim.SGD(module.parameters(), lr=args.learning_rate)
+        optimizer = torch.optim.Adam(module.parameters(), lr=args.learning_rate*num_workers)
         for direction in model_optimizers:
             direction.append(optimizer)
         return optimizer
@@ -45,16 +47,19 @@ def main_train(index, args):
             ,input_right = args.real_right, output_left = args.disp_left
             , output_right = args.disp_right)
     # data Sampler
-    if args.tpu and args.distributed:
+    if args.tpu :
         world_size = xm.xrt_world_size()
         train_sampler = torch.utils.data.distributed.DistributedSampler(
             train_dataset,
             num_replicas=world_size,
             rank=xm.get_ordinal(),
             shuffle=True)
+        tpu_params = {'loader_prefetch_size':args.loader_prefetch_size,
+                      'device_prefetch_size':args.device_prefetch_size}
     else:
         world_size = 1
         train_sampler = None
+        tpu_params = {}
     #Dataset loader
     params_training = {'batch_size': args.batch_size,
           'shuffle': not train_sampler,
@@ -65,25 +70,25 @@ def main_train(index, args):
           'shuffle': True ,
           'num_workers':  args.num_workers,
           'drop_last': True }
-    data = {"training":Data_Generator(train_dataset,params_training,tpu=args.tpu,device= dev if args.tpu else None)}
+    data = {"training":Data_Generator(train_dataset,params_training,tpu=args.tpu,device= dev if args.tpu else None,tpu_params=tpu_params)}
     if args.validation:
         data["validation"] = Data_Generator(Dataset(input_left = args.real_left_v
                 ,input_right = args.real_right_v, output_left = args.disp_left_v
-                , output_right = args.disp_right_v),params_validation,tpu=args.tpu,device= dev if args.tpu else None)
+                , output_right = args.disp_right_v),params_validation,tpu=args.tpu,device= dev if args.tpu else None,tpu_params=tpu_params)
     # model
-    D = device(Down_Convolution(num_filters = parameters["num_filters"]
+    D = device(SDMU_Encoder(num_filters = parameters["num_filters"]
                                 , kernels = parameters["kernels"]
                                 , strides = parameters["strides"])) #parms to be filled
-    add_optimizer(D,[Up_to_Down])
-    U = device(Up_Conv(up_kernels = parameters["up_kernels"]
+    add_optimizer(D,[Up_to_Down],num_workers=world_size)
+    U = device(SDMU_Depth(up_kernels = parameters["up_kernels"]
                         , i_kernels = parameters["i_kernels"]
                         , pr_kernels = parameters["pr_kernels"]
                         , up_filters = parameters["up_filters"]
                         , down_filters = parameters["down_filters"]
                         , index = parameters["index"]
                         , pr_filters = parameters["pr_filters"]))          #parms to be filled
-    add_optimizer(U,[Up_to_Down])
-    DispNet_ = device(DispNet(D, U,device))
+    add_optimizer(U,[Up_to_Down],num_workers=world_size)
+    DispNet_ = device(SDMU(D, U,device,0.001,100,.01,.01))
     #dataset
     DispNet_trainer = Trainer(Data_Generator = data["training"]
                             , optimizers = Up_to_Down
@@ -123,6 +128,10 @@ class Trainer:
         self.schedule_coeff = schedule_coeff
         self.batch_size = batch_size
         self.EPE = 0
+        self.sm = 0
+        self.re = 0
+        self.ds = 0
+        self.em = 0
         self.IO_time = 0
         self.forward_time = 0
         self.backward_time = 0
@@ -131,6 +140,7 @@ class Trainer:
         self.i = 0
         self.Data_Generator.reset_generator()
         self.data = self.Data_Generator.next_batch()
+        self.tpu = self.Data_Generator.tpu
     def step(self,curr):
         #selects the loss
         if self.schedule_coeff[self.i][0]<curr:
@@ -147,13 +157,25 @@ class Trainer:
             data = next(self.data)
         self.IO_time += time() - t
         t = time()
-        loss = self.Network.score(input = data[0], output = data[1], which=self.which, lp=self.i+1, train = True).mul(self.schedule_coeff[self.i][1])
+        loss = self.Network.score(imgL = data[0], imgR = data[1], which=self.which, lp=self.i+1, train = True)
         self.forward_time += time() - t
         t = time()
-        loss.backward()
-        self.EPE+= loss.detach()
-        for optimizer in self.optimizers:
-            xm.optimizer_step(optimizer)#, barrier=True)
+        self.sm+= loss[0].detach()
+        self.re+= loss[2].detach()
+        self.ds+= loss[1].detach()
+        self.em+= loss[3].detach()
+        l = 0
+        for i in loss:
+            l+=i
+        l = l.mul(self.schedule_coeff[self.i][1])
+        l..backward()
+        if self.tpu:
+            for optimizer in self.optimizers:
+                xm.optimizer_step(optimizer)#, barrier=True)
+        else:
+            for optimizer in self.optimizers:
+                optimizer.step()
+
         self.backward_time += time() - t
 
     def total_time(self):
@@ -164,6 +186,10 @@ class Trainer:
         self.IO_time = 0
         self.forward_time = 0
         self.backward_time = 0
+        self.sm = 0
+        self.re = 0
+        self.ds = 0
+        self.em = 0
 
 class Logger:
 
@@ -180,12 +206,16 @@ class Logger:
             print("{0}".format(self.name))
 
         if self.trainer is not None:
-            loss = self.trainer.EPE.item()/self.log_interval
             io_time = self.trainer.IO_time
             forward_time = self.trainer.forward_time
             backward_time = self.trainer.backward_time
             which = self.trainer.which
-            print(" -Training_loss: {0:10.2f} -IO_time: {1:.2f}s -forward_time: {2:.2f}s -backward_time: {3:.2f}s -which_loss: pr_loss{4}".format(loss,io_time,forward_time,backward_time,which))
+            sm = self.trainer.sm.item()/self.log_interval
+            re = self.trainer.re.item()/self.log_interval
+            ds = self.trainer.ds.item()/self.log_interval
+            em = self.trainer.em.item()/self.log_interval
+            tot = sm+re+ds+em
+            print(" -Training_loss: {0} -S: {1} -R: {2} -D: {3} -E: {4} -IO_time: {5:.2f}s -forward_time: {6:.2f}s -backward_time: {7:.2f}s -which_loss: pr_loss{8}".format(tot,sm,re,ds,em,io_time,forward_time,backward_time,which))
             self.trainer.reset_stats()
 
         for id, validator in enumerate(self.validators):

@@ -6,7 +6,7 @@ import matplotlib.pyplot as misc
 import numpy as np
 from PIL import Image
 import sys
-import webp
+#import webp
 
 
 def read(file):
@@ -17,7 +17,7 @@ def read(file):
     elif file.endswith('.png'): return readImage(file)
     elif file.endswith('.jpg'): return readImage(file)
     elif file.endswith('.pfm'): return readPFM(file)[0]
-    elif file.endswith(".webp"): return readWEBP(file)
+    #elif file.endswith(".webp"): return readWEBP(file)
     else: raise Exception('don\'t know how to read %s' % file)
 
 def write(file, data):

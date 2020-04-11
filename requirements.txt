@@ -1,2 +1,3 @@
 webp
 opencv-python
+h5py

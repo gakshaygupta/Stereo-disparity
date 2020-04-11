@@ -1,5 +1,4 @@
 import train
-import torch_xla.distributed.xla_multiprocessing as xmp
 import argparse
 
 if __name__ == '__main__':
@@ -46,7 +45,8 @@ if __name__ == '__main__':
     # TPU related Arguments
     tpu_group = parser.add_argument_group("TPU","Arguments for TPU training")
     tpu_group.add_argument("--num_cores", type = int, default=8, help="Defines the number of TPU cores to use")
-    tpu_group.add_argument("--distributed", default=False, action='store_true', help="use distributed sampler")
+    tpu_group.add_argument("--loader_prefetch_size", type=int, default=8, help='Defines the loader prefetch queue size')
+    tpu_group.add_argument("--device_prefetch_size", type=int, default=4, help='Defines the device prefetch size')
     # Other
     parser.add_argument('--cuda', default=False, action='store_true', help='use cuda')
     parser.add_argument('--tpu', default=False, action='store_true', help='use tpu')
@@ -54,6 +54,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
     if args.tpu:
         print("tpu enabled")
+        import torch_xla.distributed.xla_multiprocessing as xmp
         xmp.spawn(train.main_train, args=(args,), nprocs=args.num_cores)#, start_method='fork')
     else:
         train.main_train(0,args)
