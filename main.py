@@ -47,9 +47,14 @@ if __name__ == '__main__':
     tpu_group.add_argument("--num_cores", type = int, default=8, help="Defines the number of TPU cores to use")
     tpu_group.add_argument("--loader_prefetch_size", type=int, default=8, help='Defines the loader prefetch queue size')
     tpu_group.add_argument("--device_prefetch_size", type=int, default=4, help='Defines the device prefetch size')
+
     # Other
     parser.add_argument('--cuda', default=False, action='store_true', help='use cuda')
     parser.add_argument('--tpu', default=False, action='store_true', help='use tpu')
+    parser.add_argument('--c1', type=float, default=1, help='smooth loss')
+    parser.add_argument('--c2', type=float, default=1, help='recon loss')
+    parser.add_argument('--c3', type=float, default=1, help='dipsmi loss')
+    parser.add_argument('--c4', type=float, default=1, help='edge loss')
     # Parse arguments
     args = parser.parse_args()
     if args.tpu:

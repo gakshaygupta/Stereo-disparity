@@ -129,10 +129,10 @@ class SDMU(nn.Module):
         #print("edge",lossL,lossR)
         return lossL+lossR
 
-    def compute_loss(self,disp,imgL,imgR):
+    def compute_loss(self,disp,imgL,imgR,r):
         dispL = disp[:,0,:,:].unsqueeze(1)
         dispR = disp[:,1,:,:].unsqueeze(1)
-        smooth_loss = self.c1*self.smooth_loss(dispL,dispR,imgL,imgR) if self.c1>0 else self.zero
+        smooth_loss = self.c1*self.smooth_loss(dispL,dispR,imgL,imgR)/r if self.c1>0 else self.zero
         recon_loss = self.c2*self.recon_loss(dispL,dispR,imgL,imgR) if self.c2>0 else self.zero
         disp_sim = self.c3*self.disp_sim(dispL,dispR) if self.c3>0 else self.zero
         edge_loss = self.c4*self.edge_loss(dispL,dispR,imgL,imgR) if self.edge_loss_b else self.zero
@@ -146,4 +146,4 @@ class SDMU(nn.Module):
         intermediate = self.D(imgL,imgR)
         disp = self.max_disp*self.U(intermediate, lp) #B*H*W
         imgL,imgR = self.resize(imgL,factor= 2*2**(which-1)), self.resize(imgR,factor= 2*2**(which-1))
-        return self.compute_loss(disp,imgL,imgR)
+        return self.compute_loss(disp,imgL,imgR,r=2**(which-1))
