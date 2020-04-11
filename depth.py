@@ -60,12 +60,13 @@ class SDMU_Depth(nn.Module):
     def forward(self,down_out,index):
             prob6 = self.prl_list[0](down_out[-1])
             final_list = list(zip(self.up_conv_list,self.i_conv_list,self.prl_list[1:]))
-            out = prob6
+            out = [prob6]
             in_ = down_out[-1]
             for i,l in enumerate(final_list):
-                if i==(index-1):
-                    break
+                # if i==(index-1):
+                #     break
                 #print(self.interpolate(out).shape,out.shape ,l[0](in_).shape,down_out[self.index[i]].shape,i)
-                in_ = l[1](torch.cat([self.interpolate(out),l[0](in_),down_out[self.index[i]]],1))
-                out = l[2](in_)
+                in_ = l[1](torch.cat([self.interpolate(out[-1]),l[0](in_),down_out[self.index[i]]],1))
+                out.append(l[2](in_))
+
             return out

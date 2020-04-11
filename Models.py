@@ -79,16 +79,16 @@ class SDMU(nn.Module):
         imgL_gy = self.gradient_y(imgL)
         imgR_gx = self.gradient_x(imgR)
         imgR_gy = self.gradient_y(imgR)
-        dispL_gx = self.gradient_x(dispL)
-        dispL_gy = self.gradient_y(dispL)
-        dispR_gx = self.gradient_x(dispR)
-        dispR_gy = self.gradient_y(dispR)
+        dispL_gx = self.gradient_x(dispL).squeeze(1)
+        dispL_gy = self.gradient_y(dispL).squeeze(1)
+        dispR_gx = self.gradient_x(dispR).squeeze(1)
+        dispR_gy = self.gradient_y(dispR).squeeze(1)
         with torch.no_grad():
             weightL_x = torch.exp(-torch.mean(torch.abs(imgL_gx),dim=1))
             weightL_y = torch.exp(-torch.mean(torch.abs(imgL_gy),dim=1))
             weightR_x = torch.exp(-torch.mean(torch.abs(imgR_gx),dim=1))
             weightR_y = torch.exp(-torch.mean(torch.abs(imgR_gy),dim=1))
-        print(dispL_gx.shape,weightL_x.shape)
+        #print(dispR_gx.shape,weightR_x.shape)
         lossL = torch.mean(weightL_x*torch.abs(dispL_gx))+torch.mean(weightL_y*torch.abs(dispL_gy))
         lossR = torch.mean(weightR_x*torch.abs(dispR_gx))+torch.mean(weightR_y*torch.abs(dispR_gy))
         #print("smooth",lossL,lossR)
@@ -116,10 +116,10 @@ class SDMU(nn.Module):
         imgL_gy = self.gradient_y(imgL)
         imgR_gx = self.gradient_x(imgR)
         imgR_gy = self.gradient_y(imgR)
-        dispL_gx = self.gradient_x(dispL)
-        dispL_gy = self.gradient_y(dispL)
-        dispR_gx = self.gradient_x(dispR)
-        dispR_gy = self.gradient_y(dispR)
+        dispL_gx = self.gradient_x(dispL).squeeze(1)
+        dispL_gy = self.gradient_y(dispL).squeeze(1)
+        dispR_gx = self.gradient_x(dispR).squeeze(1)
+        dispR_gy = self.gradient_y(dispR).squeeze(1)
         with torch.no_grad():
             weightL_x = torch.exp(-1/torch.mean(torch.abs(imgL_gx),dim=1))
             weightL_y = torch.exp(-1/torch.mean(torch.abs(imgL_gy),dim=1))
@@ -148,9 +148,8 @@ class SDMU(nn.Module):
         disp = [self.max_disp*i for i in self.U(intermediate, lp)] #B*H*W
         loss = [0]*4
         for i in range(0,6):
-            imgL,imgR = self.resize(imgL,factor= 2**(6-i)), self.resize(imgR,factor= 2*2**(6-i))
-            print(disp[0].shape,imgL.shape)
-            l = self.compute_loss(disp[i],imgL,imgR,r=2**(6-i))
+            imgLK,imgRK = self.resize(imgL,factor= 2**(6-i)), self.resize(imgR,factor= 2**(6-i))
+            l = self.compute_loss(disp[i],imgLK,imgRK,r=2**(6-i))
             for j in range(0,4):
                 loss[j]+=l[j]
         return loss
