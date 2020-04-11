@@ -88,7 +88,7 @@ def main_train(index, args):
                         , index = parameters["index"]
                         , pr_filters = parameters["pr_filters"]))          #parms to be filled
     add_optimizer(U,[Up_to_Down],num_workers=world_size)
-    DispNet_ = device(SDMU(D, U,device,0.001,100,.01,.01))
+    DispNet_ = device(SDMU(D, U,device,0.1/64,0.1,1,0))
     #dataset
     DispNet_trainer = Trainer(Data_Generator = data["training"]
                             , optimizers = Up_to_Down

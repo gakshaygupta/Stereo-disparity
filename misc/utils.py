@@ -9,6 +9,7 @@ class BiLinear(nn.Module):
         self.shape = []
         self.X = []
         self.Y = []
+        self.grid_sample = torch.nn.functional.grid_sample
     def forward(self, img, depth):
 
         # img: the source image (where to sample pixels) -- [B, 3, H, W]
@@ -16,9 +17,9 @@ class BiLinear(nn.Module):
         # Returns: Source image warped to the target image
         if not self.shape ==depth.size():
             b, _, h, w = depth.size()
-            i_range = self.device(torch.linspace(-1.0, 1.0,h,requires_grad = False)) # [1, H, W]  copy 0-height for w times : y coord
-            j_range = self.device(torch.linspace(-1.0, 1.0,w,requires_grad = False)) # [1, H, W]  copy 0-width for h times  : x coord
-
+            i_range = self.device(torch.linspace(0, 1.0,h,requires_grad = False)) # [1, H, W]  copy 0-height for w times : y coord
+            j_range = self.device(torch.linspace(0, 1.0,w,requires_grad = False)) # [1, H, W]  copy 0-width for h times  : x coord
+            
             # pixel_coords = device(torch.stack((j_range, i_range), dim=1).float())  # [1, 2, H, W]
             # batch_pixel_coords = pixel_coords[:,:,:,:].expand(b,2,h,w).contiguous().view(b, 2, -1)  # [B, 2, H*W]
             X, Y = torch.meshgrid([i_range,j_range])
@@ -35,9 +36,9 @@ class BiLinear(nn.Module):
             Y = self.Y
                                                     # [B, H*W, 2]
         pixel_coords = torch.stack([X,Y],dim=3)  # [B, H, W, 2]
-
-        projected_img = torch.nn.functional.grid_sample(img, pixel_coords, padding_mode=self.padding_mode)
-
+    
+        projected_img = self.grid_sample(img, pixel_coords, padding_mode=self.padding_mode)
+    
         return projected_img
 class SSIM(nn.Module):
     """Layer to compute the SSIM loss between a pair of images
@@ -103,7 +104,7 @@ class Corr(nn.Module):
         else: # such as simfun = nn.CosineSimilarity(dim=1)
             self.simfun = simfun
     def simfun_default(self, fL, fR):
-        return torch.sum(fL*fR,dim=1)
+        return torch.sum(fL*fR,dim=1);
 
     def forward(self, fL, fR):
         bn, c, h, w = fL.shape

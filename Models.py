@@ -35,7 +35,7 @@ class DispNet(nn.Module):
         return self.EPE(self.device(output),prob_output)
 
 class SDMU(nn.Module):
-    def __init__(self,D,U,device,c1,c2,c3,c4=0,edge_loss_b=True,max_disp=0.3):
+    def __init__(self,D,U,device,c1,c2,c3,c4=0,edge_loss_b=True,max_disp=0.4):
         super().__init__()
         self.D = D
         self.U = U
@@ -48,6 +48,7 @@ class SDMU(nn.Module):
         self.edge_loss_b = edge_loss_b
         self.max_disp = max_disp
         self.image_warp = BiLinear(device = device)
+        self.zero = torch.zeros([1])
     def _train(self,mode):
         self.D.train(mode)
         self.U.train(mode)
@@ -89,15 +90,15 @@ class SDMU(nn.Module):
             weightR_y = torch.exp(-torch.mean(torch.abs(imgR_gy),dim=1))
         lossL = torch.mean(weightL_x*torch.abs(dispL_gx))+torch.mean(weightL_y*torch.abs(dispL_gy))
         lossR = torch.mean(weightR_x*torch.abs(dispR_gx))+torch.mean(weightR_y*torch.abs(dispR_gy))
-        print("smooth",lossL,lossR)
+        #print("smooth",lossL,lossR)
         return lossL+lossR
 
-    def recon_loss(self,dispL,dispR,imgL,imgR,alpha = 0.8):
+    def recon_loss(self,dispL,dispR,imgL,imgR,alpha = 0.85):
         gen_left = self.generate_image_left(imgR,dispL)
         gen_right = self.generate_image_right(imgL,dispR)
         lossL = torch.mean(alpha*self.SSIM(imgL,gen_left)+(1-alpha)*torch.abs(imgL-gen_left))
         lossR = torch.mean(alpha*self.SSIM(imgR,gen_right)+(1-alpha)*torch.abs(imgR-gen_right))
-        print("recon",lossL,lossR)
+        #print("recon",lossL,lossR)
         return lossL+lossR
 
     def disp_sim(self,dispL,dispR):
@@ -105,7 +106,7 @@ class SDMU(nn.Module):
         gen_dispR = self.generate_image_right(dispL,dispR)
         lossL = torch.mean(torch.abs(dispL-gen_dispL))
         lossR = torch.mean(torch.abs(dispR-gen_dispR))
-        print("dispsmi",lossL,lossR)
+        #print("dispsmi",lossL,lossR)
         return lossL+lossR
 
     def edge_loss(self,dispL,dispR,imgL,imgR,alpha=0.01):
@@ -125,16 +126,16 @@ class SDMU(nn.Module):
             weightR_y = torch.exp(-1/torch.mean(torch.abs(imgR_gy),dim=1))
         lossL = torch.mean(weightL_x*torch.abs(1/(dispL_gx+alpha)))+torch.mean(weightL_y*torch.abs(1/(dispL_gy+alpha)))
         lossR = torch.mean(weightR_x*torch.abs(1/(dispR_gx+alpha)))+torch.mean(weightR_y*torch.abs(1/(dispR_gy+alpha)))
-        print("edge",lossL,lossR)
+        #print("edge",lossL,lossR)
         return lossL+lossR
 
     def compute_loss(self,disp,imgL,imgR):
         dispL = disp[:,0,:,:].unsqueeze(1)
         dispR = disp[:,1,:,:].unsqueeze(1)
-        smooth_loss = self.c1*self.smooth_loss(dispL,dispR,imgL,imgR)
-        recon_loss = self.c2*self.recon_loss(dispL,dispR,imgL,imgR)
-        disp_sim = self.c3*self.disp_sim(dispL,dispR)
-        edge_loss = self.c4*self.edge_loss(dispL,dispR,imgL,imgR) if self.edge_loss_b else 0
+        smooth_loss = self.c1*self.smooth_loss(dispL,dispR,imgL,imgR) if self.c1>0 else self.zero
+        recon_loss = self.c2*self.recon_loss(dispL,dispR,imgL,imgR) if self.c2>0 else self.zero
+        disp_sim = self.c3*self.disp_sim(dispL,dispR) if self.c3>0 else self.zero
+        edge_loss = self.c4*self.edge_loss(dispL,dispR,imgL,imgR) if self.edge_loss_b else self.zero
         return [smooth_loss,disp_sim,recon_loss,edge_loss]
 
     def score(self, imgL, imgR, which, lp, train=False):
