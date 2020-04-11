@@ -168,7 +168,7 @@ class Trainer:
         for i in loss:
             l+=i
         l = l.mul(self.schedule_coeff[self.i][1])
-        l..backward()
+        l.backward()
         if self.tpu:
             for optimizer in self.optimizers:
                 xm.optimizer_step(optimizer)#, barrier=True)
