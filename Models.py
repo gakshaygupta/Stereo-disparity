@@ -88,6 +88,7 @@ class SDMU(nn.Module):
             weightL_y = torch.exp(-torch.mean(torch.abs(imgL_gy),dim=1))
             weightR_x = torch.exp(-torch.mean(torch.abs(imgR_gx),dim=1))
             weightR_y = torch.exp(-torch.mean(torch.abs(imgR_gy),dim=1))
+        print(dispL_gx.shape,weightL_x.shape)
         lossL = torch.mean(weightL_x*torch.abs(dispL_gx))+torch.mean(weightL_y*torch.abs(dispL_gy))
         lossR = torch.mean(weightR_x*torch.abs(dispR_gx))+torch.mean(weightR_y*torch.abs(dispR_gy))
         #print("smooth",lossL,lossR)
@@ -144,6 +145,12 @@ class SDMU(nn.Module):
             imgL = self.device(imgL)
             imgR = self.device(imgR)
         intermediate = self.D(imgL,imgR)
-        disp = self.max_disp*self.U(intermediate, lp) #B*H*W
-        imgL,imgR = self.resize(imgL,factor= 2*2**(which-1)), self.resize(imgR,factor= 2*2**(which-1))
-        return self.compute_loss(disp,imgL,imgR,r=2**(which-1))
+        disp = [self.max_disp*i for i in self.U(intermediate, lp)] #B*H*W
+        loss = [0]*4
+        for i in range(0,6):
+            imgL,imgR = self.resize(imgL,factor= 2**(6-i)), self.resize(imgR,factor= 2*2**(6-i))
+            print(disp[0].shape,imgL.shape)
+            l = self.compute_loss(disp[i],imgL,imgR,r=2**(6-i))
+            for j in range(0,4):
+                loss[j]+=l[j]
+        return loss

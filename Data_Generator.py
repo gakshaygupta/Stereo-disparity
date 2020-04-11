@@ -16,13 +16,14 @@ except ImportError:
 class Dataset(data_util.Dataset):
   'Characterizes a dataset for PyTorch'
 
-  def __init__(self, input_left, input_right,output_left,output_right):
+  def __init__(self, input_left, input_right,output_left,output_right, random=True):
         self.input_left_id = path_gen(input_left, os.listdir(input_left))
         self.input_right_id = path_gen(input_right, os.listdir(input_right))
         self.output_left_id = path_gen(output_left, os.listdir(output_left)) #initially not using
         self.output_right_id = path_gen(output_right, os.listdir(output_right))
         self.input_ID = list(zip(self.input_left_id,self.input_right_id))
         self.output_ID = list(zip(self.output_left_id,self.output_right_id))
+        self.random = random
 
   def __len__(self):
         return len(self.input_left_id)
