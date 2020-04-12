@@ -136,7 +136,7 @@ class SDMU(nn.Module):
         smooth_loss = self.c1*self.smooth_loss(dispL,dispR,imgL,imgR)/r if self.c1>0 else self.zero
         recon_loss = self.c2*self.recon_loss(dispL,dispR,imgL,imgR) if self.c2>0 else self.zero
         disp_sim = self.c3*self.disp_sim(dispL,dispR) if self.c3>0 else self.zero
-        edge_loss = self.c4*self.edge_loss(dispL,dispR,imgL,imgR) if self.edge_loss_b else self.zero
+        edge_loss = self.c4*self.edge_loss(dispL,dispR,imgL,imgR)/r if self.edge_loss_b else self.zero
         return [smooth_loss,disp_sim,recon_loss,edge_loss]
 
     def score(self, imgL, imgR, which, lp, train=False):
@@ -145,7 +145,9 @@ class SDMU(nn.Module):
             imgL = self.device(imgL)
             imgR = self.device(imgR)
         intermediate = self.D(imgL,imgR)
-        disp = [2*self.max_disp*i for i in self.U(intermediate, lp)] #B*H*W
+        a = 1/0.6
+        b = -1/3
+        disp = [self.max_disp*(a*i+b) for i in self.U(intermediate, lp)] #B*H*W
         loss = [0]*4
         for i in range(0,6):
             imgLK,imgRK = self.resize(imgL,factor= 2**(6-i)), self.resize(imgR,factor= 2**(6-i))
