@@ -145,11 +145,11 @@ class SDMU(nn.Module):
             imgL = self.device(imgL)
             imgR = self.device(imgR)
         intermediate = self.D(imgL,imgR)
-        disp = [self.max_disp*i for i in self.U(intermediate, lp)] #B*H*W
+        disp = [2*self.max_disp*i for i in self.U(intermediate, lp)] #B*H*W
         loss = [0]*4
         for i in range(0,6):
             imgLK,imgRK = self.resize(imgL,factor= 2**(6-i)), self.resize(imgR,factor= 2**(6-i))
-            l = self.compute_loss(disp[i],imgLK,imgRK,r=2**(6-i))
+            l = self.compute_loss(disp[i],imgLK,imgRK,r=2**(i))
             for j in range(0,4):
                 loss[j]+=l[j]
         return loss

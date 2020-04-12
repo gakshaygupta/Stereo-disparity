@@ -38,7 +38,7 @@ def main_train(index, args):
         if args.param_init != 0.0:
             for param in module.parameters():
                 param.data.uniform_(-args.param_init, args.param_init)
-        optimizer = torch.optim.Adam(module.parameters(), lr=args.learning_rate*num_workers)
+        optimizer = torch.optim.Adadelta(module.parameters(), lr=args.learning_rate*num_workers, weight_decay = 0.001)
         for direction in model_optimizers:
             direction.append(optimizer)
         return optimizer
