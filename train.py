@@ -46,9 +46,10 @@ def main_train(index, args):
             direction.append(optimizer)
         return optimizer
     #Dataset
-    train_dataset =  Dataset(input_left = args.real_left
-            ,input_right = args.real_right, output_left = args.disp_left
-            , output_right = args.disp_right)
+    train_dataset =  Dataset( input_left = args.real_left
+                            , input_right = args.real_right
+                            , output_left = args.disp_left
+                            , output_right = args.disp_right)
     # data Sampler
     if args.tpu :
         world_size = xm.xrt_world_size()
@@ -115,11 +116,14 @@ def main_train(index, args):
             if steps % args.log_interval == 0:
                 print('STEP {0} x {1}'.format(steps, args.batch_size))
                 for logger in loggers:
-                    logger.log()
+                    logger.log(steps)
             if steps%args.save_interval==0 and args.model_path!="":
                 save_models(args.model_path,steps)
+    # define Validator
+    if args.validation:
+        validator = Validator(Network = DispNet_, Data_Generator = data["validation"] )
     #defining loggers
-    DispNet_logger = Logger("DispNet", DispNet_trainer, log_interval = args.log_interval)
+    DispNet_logger = Logger("SMDU", DispNet_trainer, log_interval = args.log_interval)
     #starting training
     start = time()
     training(loggers = [DispNet_logger]) #loggers to be defined
@@ -199,14 +203,15 @@ class Trainer:
 
 class Logger:
 
-    def __init__(self,name, trainer, log_interval, validators = (), TPU_index = None):
+    def __init__(self,name, trainer, log_interval, validator ,val_log_interval TPU_index = None):
         self.trainer = trainer
-        self.validators = validators
+        self.validator = validator
         self.log_interval = log_interval
         self.name = name
         self.TPU_index = TPU_index
+        sefl.val_log_interval = val_log_interval
 
-    def log(self):
+    def log(self,step):
 
         if self.trainer is not None or len(self.validator) > 0:
             print("{0}".format(self.name))
@@ -221,20 +226,18 @@ class Logger:
             ds = self.trainer.ds.item()/self.log_interval
             em = self.trainer.em.item()/self.log_interval
             tot = sm+re+ds+em
-            print(" -Training_loss: {0} -S: {1} -R: {2} -D: {3} -E: {4} -IO_time: {5:.2f}s -forward_time: {6:.2f}s -backward_time: {7:.2f}s -which_loss: pr_loss{8}".format(tot,sm,re,ds,em,io_time,forward_time,backward_time,which))
+            print(" -Training_loss: {0} -S: {1} -R: {2} -D: {3} -E: {4} -IO_time: {5:.2f}s -forward_time: {6:.2f}s -backward_time: {7:.2f}s".format(tot,sm,re,ds,em,io_time,forward_time,backward_time))
             self.trainer.reset_stats()
-
-        for id, validator in enumerate(self.validators):
-            t = time()
-            SSIM = validator.SSIM
-            validator.reset_stats()         #might need to change
-            print(" - Validator_SSIM: {0}   total_time:({1:.2f}s)".format(SSIM,time()-t))
+            if step%self.val_log_interval==0:s
+                t = time()
+                SSIM = self.validator.validation()
+                validator.reset_stats()         #might need to change
+                print(" - Validator_SSIM: {0}   total_time:({1:.2f}s)".format(SSIM,time()-t))
 
 class Validator:
 
     def __init__(self, Network, Data_Generator, batch_size):
         self.Network = Network
-        self.batch_size = batch_size
         self.loader = Data_Generator.Data_loader
         self.SSIM = 0
 
