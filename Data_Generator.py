@@ -59,7 +59,7 @@ class Dataset(data_util.Dataset):
               imgL,imgR = np.rot90(imgR,2),np.rot90(imgL,2)
           if rr>0.5:
               imgL,imgR, = np.flip(imgR,1),np.flip(imgL,1)
-      return imgL,imgR
+      return np.clip(imgL,0,1),np.clip(imgR,0,1)
 
   def __getitem__(self, index):
         'Generates one sample of data'
@@ -70,11 +70,13 @@ class Dataset(data_util.Dataset):
         # Load data and get label
         imgL,imgR = cv2.imread(input_left_ID),(768,384),cv2.imread(input_right_ID),(768,384)
         # data augmentation
-        imgL,imgR = self.spatial_aug(imgL,imgR)
-        imgL,imgR = self.profile_aug()
+
         imgL,imgR = self.resize(img,(768,384)),self.resize(imgR,(768,384))
-        imgL,imgR = np.transpose(imgL, (2, 0, 1)),np.transpose(imgR, (2, 0, 1))
+        imgL,imgR = self.spatial_aug(imgL,imgR)
         imgL,imgR = self.normalizer(imgL), self.normalizer(imgR)
+        imgL,imgR = self.profile_aug(imgL,imgR)
+        imgL,imgR = np.transpose(imgL, (2, 0, 1)),np.transpose(imgR, (2, 0, 1))
+
         #y_left = self.normalizer(read(output_left_ID))
         #y_right = self.resize(self.normalizer(read(output_right_ID)),(384,192))
 
