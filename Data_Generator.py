@@ -48,7 +48,7 @@ class Dataset(data_util.Dataset):
           for i in range(3):
               imgL[:,:,i],imgR[:,:,i] = shift[i]*imgL[:,:,i],shift[i]*imgR[:,:,i]
 
-	return imgL,imgR
+	  return imgL,imgR
 
   def spatial_aug(self,imgL,imgR):
       r = np.random.uniform(low=0,high=1)
