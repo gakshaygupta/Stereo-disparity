@@ -16,15 +16,17 @@ except ImportError:
 class Dataset(data_util.Dataset):
   'Characterizes a dataset for PyTorch'
 
-  def __init__(self, input_left, input_right,output_left,output_right, gama_range,):
+  def __init__(self, input_left, input_right,output_left,output_right,validate=False,gama_range=[0.8,2.2],bright_range=[0.5,2],color_range=[0.8,1.2]):
         self.input_left_id = path_gen(input_left, os.listdir(input_left))
         self.input_right_id = path_gen(input_right, os.listdir(input_right))
         self.output_left_id = path_gen(output_left, os.listdir(output_left)) #initially not using
         self.output_right_id = path_gen(output_right, os.listdir(output_right))
         self.input_ID = list(zip(self.input_left_id,self.input_right_id))
         self.output_ID = list(zip(self.output_left_id,self.output_right_id))
-        self.random = random
+        self.validate = validate
         self.gama_range = gama_range
+        self.bright_range = bright_range
+        self.color_range = color_range
   def __len__(self):
         return len(self.input_left_id)
 
@@ -44,22 +46,22 @@ class Dataset(data_util.Dataset):
           b = np.random.uniform(low = self.bright_range[0], high = self.bright_range[1])
           imgL,imgR = b*imgL,b*imgR
 
-          shift = np.random.uniform(low = self.color_range[0],high = self.color_range[1])
+          shift = np.random.uniform(low = self.color_range[0],high = self.color_range[1],size=3)
           for i in range(3):
               imgL[:,:,i],imgR[:,:,i] = shift[i]*imgL[:,:,i],shift[i]*imgR[:,:,i]
 
-	  return imgL,imgR
+      return np.clip(imgL,0,1),np.clip(imgR,0,1)
 
   def spatial_aug(self,imgL,imgR):
       r = np.random.uniform(low=0,high=1)
       if r>=0.5:
-          rf = np.random.uniform(low=0,high=1)
+          ri = np.random.uniform(low=0,high=1)
           rr = np.random.uniform(low=0,high=1)
           if ri>=0.5:
               imgL,imgR = np.rot90(imgR,2),np.rot90(imgL,2)
           if rr>0.5:
               imgL,imgR, = np.flip(imgR,1),np.flip(imgL,1)
-      return np.clip(imgL,0,1),np.clip(imgR,0,1)
+      return imgL,imgR
 
   def __getitem__(self, index):
         'Generates one sample of data'
@@ -68,13 +70,15 @@ class Dataset(data_util.Dataset):
         output_left_ID, output_right_ID = self.output_ID[index]
 
         # Load data and get label
-        imgL,imgR = cv2.imread(input_left_ID),(768,384),cv2.imread(input_right_ID),(768,384)
+        imgL,imgR = cv2.imread(input_left_ID),cv2.imread(input_right_ID)
         # data augmentation
 
-        imgL,imgR = self.resize(img,(768,384)),self.resize(imgR,(768,384))
-        imgL,imgR = self.spatial_aug(imgL,imgR)
+        imgL,imgR = self.resize(imgL,(768,384)),self.resize(imgR,(768,384))
+        if not self.validate:
+            imgL,imgR = self.spatial_aug(imgL,imgR)
         imgL,imgR = self.normalizer(imgL), self.normalizer(imgR)
-        imgL,imgR = self.profile_aug(imgL,imgR)
+        if not self.validate:
+            imgL,imgR = self.profile_aug(imgL,imgR)
         imgL,imgR = np.transpose(imgL, (2, 0, 1)),np.transpose(imgR, (2, 0, 1))
 
         #y_left = self.normalizer(read(output_left_ID))
@@ -86,7 +90,7 @@ class Dataset(data_util.Dataset):
         # if is_null(y_right):
         #     print('null value on index:{}'.format(input_left_ID))   #for debugging
         #     assert False
-        return X_left, X_right
+        return imgL,imgR
 
 def path_gen(path,paths):
     new_paths = []

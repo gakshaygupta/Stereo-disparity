@@ -48,14 +48,27 @@ class SDMU(nn.Module):
         self.edge_loss_b = edge_loss_b
         self.max_disp = max_disp
         self.image_warp = BiLinear(device = device)
-        self.zero = torch.zeros([1])
+        self.zero = torch.zeros([1],requires_grad = False)
+
     def _train(self,mode):
         self.D.train(mode)
         self.U.train(mode)
 
-    def predict(self,input):  #data must come from dataloader
-        output = self.U(self.D(input),6)
+    def predict(self,imgL,imgR):  #data must come from dataloader
+        imgL,imgR = self.device(imgL),self.device(imgR)
+        output = self.U(self.D(imgL,imgR),6)[-1]
         return output
+
+    def evaluate(self,imgL,imgR):
+        imgL,imgR = self.device(imgL),self.device(imgR)
+        self._train(mode=False)
+        disp = self.U(self.D(imgL,imgR),6)[-1]
+        dispL = disp[:,0,:,:].unsqueeze(1)
+        dispR = disp[:,1,:,:].unsqueeze(1)
+        gen_left = self.generate_image_left(imgR,dispL)
+        gen_right = self.generate_image_right(imgL,dispR)
+        SSIM = (torch.mean(-2*self.SSIM(imgR,gen_right)+1)+torch.mean(-2*self.SSIM(imgL,gen_left)+1))/2
+        return SSIM
 
     def resize(self,input,factor,reduce=True):
         return F.interpolate(input, size=None, scale_factor=1/factor if reduce else factor, mode='bilinear', align_corners=False).clamp(min=0, max=1)

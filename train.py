@@ -6,6 +6,7 @@ from time import time
 from IO import *
 from parameters import parameters
 from Data_Generator import *
+from misc.utils import SSIM
 try:
     import torch_xla
     import torch_xla.core.xla_model as xm
@@ -33,11 +34,13 @@ def main_train(index, args):
     device = tpu if args.tpu else device
     # optimizer list
     Up_to_Down = []
+    def weights_init(m):
+        if isinstance(m, nn.Conv2d) or isinstance(m, nn.ConvTranspose2d):
+            torch.nn.init.xavier_normal_(m.weight.data)
+            m.bias.data.fill_(0)
     # Method which creates a module optimizer and add it to the given list
     def add_optimizer(module,model_optimizers=(),num_workers = 1): #needs a change for lr tpu
-        if args.param_init != 0.0:
-            for param in module.parameters():
-                param.data = torch.nn.init.xavier_normal_(param.data, gain=1.0)#(-args.param_init, args.param_init)
+        module.apply(weights_init)
         optimizer = torch.optim.Adadelta(module.parameters(), lr=args.learning_rate*num_workers, weight_decay = 0.001)
         for direction in model_optimizers:
             direction.append(optimizer)
@@ -72,9 +75,12 @@ def main_train(index, args):
           'drop_last': True }
     data = {"training":Data_Generator(train_dataset,params_training,tpu=args.tpu,device= dev if args.tpu else None,tpu_params=tpu_params)}
     if args.validation:
-        data["validation"] = Data_Generator(Dataset(input_left = args.real_left_v
-                ,input_right = args.real_right_v, output_left = args.disp_left_v
-                , output_right = args.disp_right_v),params_validation,tpu=args.tpu,device= dev if args.tpu else None,tpu_params=tpu_params)
+        val_dataset = Dataset(input_left = args.real_left_v
+                              , input_right = args.real_right_v
+                              , output_left = args.disp_left_v
+                              , output_right = args.disp_right_v
+                              , validation = True)
+        data["validation"] = Data_Generator(val_dataset,params_validation,tpu=args.tpu,device= dev if args.tpu else None,tpu_params=tpu_params)
     # model
     D = device(SDMU_Encoder(num_filters = parameters["num_filters"]
                                 , kernels = parameters["kernels"]
@@ -220,24 +226,24 @@ class Logger:
 
         for id, validator in enumerate(self.validators):
             t = time()
-            EPE = validator.EPE
+            SSIM = validator.SSIM
             validator.reset_stats()         #might need to change
-            print(" - Validator_EPE: {0:10.2f}   total_time:({1:.2f}s)".format(EPE,time()-t))
+            print(" - Validator_SSIM: {0}   total_time:({1:.2f}s)".format(SSIM,time()-t))
 
 class Validator:
 
     def __init__(self, Network, Data_Generator, batch_size):
         self.Network = Network
         self.batch_size = batch_size
-        self.loader = Data_Generator.loader
-        self.EPE = 0
+        self.loader = Data_Generator.Data_loader
+        self.SSIM = 0
 
     def validation(self):
         count = 0
         for i,data in enumerate(self.loader):
-                self.EPE+= torch.sum(torch.tensor(self.Network.score(data[0],data[1]))).item()
+                self.SSIM += self.Network.evaluate(imgL=data[0],imgR=data[1]).item()
                 count+= 1
-        return self.EPE/count
+        return self.SSIM/count
 
     def reset_stats(self):
-        self.EPE = 0
+        self.SSIM = 0
