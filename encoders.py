@@ -31,19 +31,19 @@ class SDMU_Encoder(nn.Module):
         self.layer_parm[2] = ((2*self.layer_parm[2][0][0],self.layer_parm[2][0][1]),self.layer_parm[2][1],self.layer_parm[2][2])
         self.layer_list = nn.ModuleList([nn.Conv2d(x[0][0],x[0][1],x[1],x[2],padding=x[1]//2) for x in self.layer_parm])
         self.corr = Corr()
-        self.relu = nn.ReLU()
+        self.elu = nn.ELU()
     def forward(self,imgL,imgR):
         conv1L = self.layer_list[0](imgL)
-        conv1L = self.relu(conv1L)
+        conv1L = self.elu(conv1L)
         conv2L = self.layer_list[1](conv1L)
-        conv2L = self.relu(conv2L)
+        conv2L = self.elu(conv2L)
         conv1R = self.layer_list[0](imgR)
-        conv1R = self.relu(conv1R)
+        conv1R = self.elu(conv1R)
         conv2R = self.layer_list[1](conv1R)
-        conv2R = self.relu(conv2R)
+        conv2R = self.elu(conv2R)
         #corr = self.corr(conv2L,conv2R)
         corr = torch.cat([conv2L,conv2R],dim=1)
         conv_out = [torch.cat([conv1L,conv1R],1),torch.cat([conv2L,conv2R],1),corr]
         for conv in self.layer_list[2:]:
-            conv_out.append(self.relu(conv(conv_out[-1])))
+            conv_out.append(self.elu(conv(conv_out[-1])))
         return conv_out

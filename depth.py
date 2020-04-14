@@ -4,11 +4,11 @@ import torch
 
 def up_conv(up_kernel, up_stride, in_channels, out_channels, padding ):
       up_c = nn.ConvTranspose2d(in_channels, out_channels, kernel_size = up_kernel, stride = up_stride, padding = padding)
-      return nn.Sequential(up_c,nn.ReLU(inplace=True))
+      return nn.Sequential(up_c,nn.ELU(inplace=True))
 
 def conv(kernel,stride,in_channels,out_channels, padding):
       cnn  = nn.Conv2d(in_channels, out_channels, kernel_size = kernel, stride = stride, padding = padding)
-      return nn.Sequential(cnn,nn.ReLU(inplace=True))
+      return nn.Sequential(cnn,nn.ELU(inplace=True))
 
 def pre_disp(in_channels, out_channels, kernel_size, stride, padding):
       prl = nn.Conv2d(in_channels, out_channels, kernel_size, stride = stride, padding = padding)
@@ -57,7 +57,7 @@ class SDMU_Depth(nn.Module):
     def interpolate(self,input, scale=2):
         return F.interpolate(input, scale_factor=scale, mode='bilinear', align_corners=False)
 
-    def forward(self,down_out,index):
+    def forward(self,down_out):
             prob6 = self.prl_list[0](down_out[-1])
             final_list = list(zip(self.up_conv_list,self.i_conv_list,self.prl_list[1:]))
             out = [prob6]

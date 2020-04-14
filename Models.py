@@ -35,7 +35,7 @@ class DispNet(nn.Module):
         return self.EPE(self.device(output),prob_output)
 
 class SDMU(nn.Module):
-    def __init__(self,D,U,device,c1,c2,c3,c4=0,edge_loss_b=True,max_disp=0.4):
+    def __init__(self,D,U,device,c1,c2,c3,c4=0,max_disp=0.3*2):
         super().__init__()
         self.D = D
         self.U = U
@@ -45,10 +45,9 @@ class SDMU(nn.Module):
         self.c2 = c2
         self.c3 = c3
         self.c4 = c4
-        self.edge_loss_b = edge_loss_b
         self.max_disp = max_disp
         self.image_warp = BiLinear(device = device)
-        self.zero = torch.zeros([1],requires_grad = False)
+        self.zero = self.device(torch.zeros([1],requires_grad = False)[0])
 
     def _train(self,mode):
         self.D.train(mode)
@@ -56,17 +55,20 @@ class SDMU(nn.Module):
 
     def predict(self,imgL,imgR):  #data must come from dataloader
         imgL,imgR = self.device(imgL),self.device(imgR)
+        self._train(mode=False)
         output = self.U(self.D(imgL,imgR),6)[-1]
         return output
 
     def evaluate(self,imgL,imgR):
         imgL,imgR = self.device(imgL),self.device(imgR)
         self._train(mode=False)
-        disp = self.U(self.D(imgL,imgR),6)[-1]
+        disp = self.U(self.D(imgL,imgR))[-1]
         dispL = disp[:,0,:,:].unsqueeze(1)
         dispR = disp[:,1,:,:].unsqueeze(1)
-        gen_left = self.generate_image_left(imgR,dispL)
-        gen_right = self.generate_image_right(imgL,dispR)
+        imgL,imgR = self.resize(imgL,2),self.resize(imgR,2)
+        with torch.no_grad():
+            gen_left = self.generate_image_left(imgR,dispL)
+            gen_right = self.generate_image_right(imgL,dispR)
         SSIM = (torch.mean(-2*self.SSIM(imgR,gen_right)+1)+torch.mean(-2*self.SSIM(imgL,gen_left)+1))/2
         return SSIM
 
@@ -149,7 +151,7 @@ class SDMU(nn.Module):
         smooth_loss = self.c1*self.smooth_loss(dispL,dispR,imgL,imgR)/r if self.c1>0 else self.zero
         recon_loss = self.c2*self.recon_loss(dispL,dispR,imgL,imgR) if self.c2>0 else self.zero
         disp_sim = self.c3*self.disp_sim(dispL,dispR) if self.c3>0 else self.zero
-        edge_loss = self.c4*self.edge_loss(dispL,dispR,imgL,imgR)/r if self.edge_loss_b else self.zero
+        edge_loss = self.c4*self.edge_loss(dispL,dispR,imgL,imgR)/r if self.c4>0 else self.zero
         return [smooth_loss,disp_sim,recon_loss,edge_loss]
 
     def score(self, imgL, imgR, which, lp, train=False):
@@ -160,7 +162,7 @@ class SDMU(nn.Module):
         intermediate = self.D(imgL,imgR)
         a = 1/0.6
         b = -1/3
-        disp = [self.max_disp*(a*i+b) for i in self.U(intermediate, lp)] #B*H*W
+        disp = [self.max_disp*(a*i+b) for i in self.U(intermediate)] #B*H*W
         loss = [0]*4
         for i in range(0,6):
             imgLK,imgRK = self.resize(imgL,factor= 2**(6-i)), self.resize(imgR,factor= 2**(6-i))
