@@ -23,14 +23,19 @@ class Down_Convolution(nn.Module):
         return conv_out
 
 class SDMU_Encoder(nn.Module):
-    def __init__(self, num_filters, kernels,strides,D=None):
+    def __init__(self, num_filters, kernels,strides,corr=False,D=40):
         super().__init__()
         self.input_output = [(num_filters[x],num_filters[x+1]) for x in range(0,len(num_filters)-1)]
         self.kernels = kernels
         self.layer_parm = list(zip(self.input_output,self.kernels,strides))
-        self.layer_parm[2] = ((2*self.layer_parm[2][0][0],self.layer_parm[2][0][1]),self.layer_parm[2][1],self.layer_parm[2][2])
+        const = 0
+        self.c = corr
+        if self.c:
+            print("Using correlation layer")
+            self.corr = Corr(D)
+            const = 2*D+1
+        self.layer_parm[2] = ((const+2*self.layer_parm[2][0][0],self.layer_parm[2][0][1]),self.layer_parm[2][1],self.layer_parm[2][2])
         self.layer_list = nn.ModuleList([nn.Conv2d(x[0][0],x[0][1],x[1],x[2],padding=x[1]//2) for x in self.layer_parm])
-        self.corr = Corr()
         self.elu = nn.ELU()
     def forward(self,imgL,imgR):
         conv1L = self.layer_list[0](imgL)
@@ -41,8 +46,11 @@ class SDMU_Encoder(nn.Module):
         conv1R = self.elu(conv1R)
         conv2R = self.layer_list[1](conv1R)
         conv2R = self.elu(conv2R)
-        #corr = self.corr(conv2L,conv2R)
-        corr = torch.cat([conv2L,conv2R],dim=1)
+        if self.c:
+            corr = self.corr(conv2L,conv2R)
+            corr = torch.cat([conv2L,conv2R,corr],dim=1)
+        else:
+            corr = torch.cat([conv2L,conv2R],dim=1)
         conv_out = [torch.cat([conv1L,conv1R],1),torch.cat([conv2L,conv2R],1),corr]
         for conv in self.layer_list[2:]:
             conv_out.append(self.elu(conv(conv_out[-1])))

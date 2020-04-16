@@ -99,6 +99,7 @@ def path_gen(path,paths):
     return new_paths
 def  is_null(a):
         np.isnan(a).any()
+        
 class Data_Generator():
     def __init__(self,Dataset, params, tpu, device, tpu_params = {}):
         self.Dataset = Dataset

@@ -128,10 +128,10 @@ class SSIM(nn.Module):
 #         return out
 class Corr(nn.Module):
     # Modified version of source https://github.com/wyf2017/DSMnet/blob/b61652dfb3ee84b996f0ad4055eaf527dc6b965f/models/util_conv.py#L56
-    def __init__(self, stride=1, D=40, simfun=None):
+    def __init__(self, stride=1, d=40, simfun=None):
         super(Corr, self).__init__()
         self.stride = stride
-        self.D = D
+        self.d = d
         if(simfun is None):
             self.simfun = self.simfun_default
         else: # such as simfun = nn.CosineSimilarity(dim=1)
@@ -141,11 +141,12 @@ class Corr(nn.Module):
 
     def forward(self, fL, fR):
         bn, c, h, w = fL.shape
-        corrmap = torch.zeros(bn, self.D*2+1, h, w).type_as(fL.data)
-        corrmap[:, 0] = self.simfun(fL, fR)
-        for i in range(1, self.D):
+        D = self.d*2+1
+        corrmap = torch.zeros(bn, D, h, w).type_as(fL.data)
+        corrmap[:, 0,:,:] = self.simfun(fL, fR)
+        for i in range(1, D//2+1):
             if(i >= w): break
             idx = i*self.stride
             corrmap[:, i, :, idx:] = self.simfun(fL[:, :, :, idx:], fR[:, :, :, :-idx])
-            corrmap[:, -i, :, idx:] = self.simfun(fR[:, :, :, idx:], fL[:, :, :, :-idx])
+            corrmap[:, D//2+i, :, idx:] = self.simfun(fR[:, :, :, idx:], fL[:, :, :, :-idx])
         return corrmap

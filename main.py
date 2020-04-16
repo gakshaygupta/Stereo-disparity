@@ -13,7 +13,9 @@ if __name__ == '__main__':
     corpora_group.add_argument('--disp_right', help='The location of the folder containing the right disparity map')
 
     # # Architecture (up_kernel, up_stride, in_channels, out_channels, padding)
-    # architecture_group = parser.add_argument_group('architecture', 'Architecture related arguments')
+    architecture_group = parser.add_argument_group('architecture', 'Architecture related arguments')
+    architecture_group.add_argument('--corr', default=False,action='store_true', help="Enables the correlation layer")
+    architecture_group.add_argument('--D', type=int, default=40, help="Hyperparameter depicting the max dispacement the correlation layer can perform")
     # architecture_group.add_argument('--arch_param', type=int, default=2, help="The location of the file containing architecure's parameters")
     # Data Pipieline Arguments
     data_pipeline_group = parser.add_argument_group("Data Pipeline","Let the user change the data pipeline arguments")

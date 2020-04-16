@@ -85,7 +85,9 @@ def main_train(index, args):
     # model
     D = device(SDMU_Encoder(num_filters = parameters["num_filters"]
                                 , kernels = parameters["kernels"]
-                                , strides = parameters["strides"])) #parms to be filled
+                                , strides = parameters["strides"]
+                                , corr=args.corr
+                                , D=args.D)) #parms to be filled
     add_optimizer(D,[Up_to_Down],num_workers=world_size)
     U = device(SDMU_Depth(up_kernels = parameters["up_kernels"]
                         , i_kernels = parameters["i_kernels"]
@@ -101,10 +103,10 @@ def main_train(index, args):
                             , optimizers = Up_to_Down
                             , Network = DispNet_
                             , schedule_coeff = parameters["schedule_coeff"]
-                             ,batch_size = args.batch_size)
+                            , batch_size = args.batch_size)
     trainers = [DispNet_trainer]
     def save_models(name,step):
-        torch.save(DispNet_, '{0}{1}:DispNet_step_size_{2}.pth'.format(name, args.save, step))
+        torch.save(DispNet_.state_dict(), '{0}{1}:DispNet_step_size_{2}.pt'.format(name, args.save, step))
     def training(loggers): # this may be used as intput to the swamp tpu
         for steps in range(1, args.iterations + 1):
             for trainer in trainers:
@@ -121,7 +123,7 @@ def main_train(index, args):
     if args.validation:
         validator = Validator(Network = DispNet_, Data_Generator = data["validation"] )
     #defining loggers
-    DispNet_logger = Logger("SMDU", DispNet_trainer,validator = validator,val_log_interval = args.val_log_interval,log_interval = args.log_interval)
+    DispNet_logger = Logger("SMDU", DispNet_trainer,validator = validator,val_log_interval = args.val_log_interval,log_interval = args.log_interval,TPU = args.tpu)
     #starting training
     start = time()
     training(loggers = [DispNet_logger]) #loggers to be defined
@@ -201,12 +203,12 @@ class Trainer:
 
 class Logger:
 
-    def __init__(self,name, trainer, log_interval, validator, val_log_interval ,TPU_index = None):
+    def __init__(self,name, trainer, log_interval, validator, val_log_interval ,TPU):
         self.trainer = trainer
         self.validator = validator
         self.log_interval = log_interval
         self.name = name
-        self.TPU_index = TPU_index
+        self.TPU = TPU
         self.val_log_interval = val_log_interval
 
     def log(self,step):
@@ -226,11 +228,18 @@ class Logger:
             tot = sm+re+ds+em
             print(" -Training_loss: {0} -S: {1} -R: {2} -D: {3} -E: {4} -IO_time: {5:.2f}s -forward_time: {6:.2f}s -backward_time: {7:.2f}s".format(tot,sm,re,ds,em,io_time,forward_time,backward_time))
             self.trainer.reset_stats()
-            if self.validator is not None and step%self.val_log_interval==0:
-                t = time()
-                SSIM = self.validator.validation()
-                self.validator.reset_stats()         #might need to change
-                print(" - Validator_SSIM: {0}   total_time:({1:.2f}s)".format(SSIM,time()-t))
+            if self.TPU and  xm.is_master_ordinal():
+                if self.validator is not None and step%self.val_log_interval==0:
+                    t = time()
+                    SSIM = self.validator.validation()
+                    self.validator.reset_stats()         #might need to change
+                    print(" - Validator_SSIM: {0}   total_time:({1:.2f}s)".format(SSIM,time()-t))
+            if not self.TPU:
+                if self.validator is not None and step%self.val_log_interval==0:
+                    t = time()
+                    SSIM = self.validator.validation()
+                    self.validator.reset_stats()         #might need to change
+                    print(" - Validator_SSIM: {0}   total_time:({1:.2f}s)".format(SSIM,time()-t))
 
 class Validator:
 

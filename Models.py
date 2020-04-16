@@ -10,6 +10,7 @@ class DispNet(nn.Module):
         self.BCE_criterion = nn.BCELoss(size_average=False)
         self.MSE = torch.nn.MSELoss(size_average=None, reduce=None, reduction='mean')
         self.device = device
+
     def _train(self, mode):
         self.D.train(mode)
         self.U.train(mode)
@@ -48,7 +49,12 @@ class SDMU(nn.Module):
         self.max_disp = max_disp
         self.image_warp = BiLinear(device = device)
         self.zero = self.device(torch.zeros([1],requires_grad = False)[0])
-
+        self.a = 1/0.6
+        self.b = -1/3
+    def set_device(self,device):
+            self.device = device
+            self.image_warp = BiLinear(device = self.device)
+            self.zero = self.device(torch.zeros([1],requires_grad = False)[0])
     def _train(self,mode):
         self.D.train(mode)
         self.U.train(mode)
@@ -56,13 +62,13 @@ class SDMU(nn.Module):
     def predict(self,imgL,imgR):  #data must come from dataloader
         imgL,imgR = self.device(imgL),self.device(imgR)
         self._train(mode=False)
-        output = self.U(self.D(imgL,imgR),6)[-1]
+        output = self.max_disp*(self.a*self.U(self.D(imgL,imgR))[-1]+self.b)
         return output
 
     def evaluate(self,imgL,imgR):
         imgL,imgR = self.device(imgL),self.device(imgR)
         self._train(mode=False)
-        disp = self.U(self.D(imgL,imgR))[-1]
+        disp = self.max_disp*(self.a*self.U(self.D(imgL,imgR))[-1]+self.b)
         dispL = disp[:,0,:,:].unsqueeze(1)
         dispR = disp[:,1,:,:].unsqueeze(1)
         imgL,imgR = self.resize(imgL,2),self.resize(imgR,2)
@@ -160,8 +166,8 @@ class SDMU(nn.Module):
             imgL = self.device(imgL)
             imgR = self.device(imgR)
         intermediate = self.D(imgL,imgR)
-        a = 1/0.6
-        b = -1/3
+        a = self.a
+        b = self.b
         disp = [self.max_disp*(a*i+b) for i in self.U(intermediate)] #B*H*W
         loss = [0]*4
         for i in range(0,6):
@@ -170,3 +176,12 @@ class SDMU(nn.Module):
             for j in range(0,4):
                 loss[j]+=l[j]
         return loss
+# class SMDU_wrapper(nn.Module):
+#     def __init__(self, D, U):
+#         self.D = D
+#         self.U = U
+#
+#     def forward(self,*data):
+#         X = self.D(*data)
+#         output = self.U(X)
+#         return output
