@@ -106,7 +106,12 @@ def main_train(index, args):
                             , batch_size = args.batch_size)
     trainers = [DispNet_trainer]
     def save_models(name,step):
-        torch.save(DispNet_.state_dict(), '{0}{1}:DispNet_step_size_{2}.pt'.format(name, args.save, step))
+        m = {
+            'model_state_dict': DispNet_.state_dict(),
+            'optimizerD_state_dict': Up_to_Down[0].state_dict(),
+            'optimizerU_state_dict': Up_to_Down[1].state_dict(),
+            }
+        torch.save(m, '{0}{1}:DispNet_step_size_{2}.pt'.format(name, args.save, step))
     def training(loggers): # this may be used as intput to the swamp tpu
         for steps in range(1, args.iterations + 1):
             for trainer in trainers:
@@ -247,13 +252,16 @@ class Validator:
         self.Network = Network
         self.loader = Data_Generator.Data_loader
         self.SSIM = 0
-
+        self.avgSSIM = 0
     def validation(self):
         count = 0
         for i,data in enumerate(self.loader):
                 self.SSIM += self.Network.evaluate(imgL=data[0],imgR=data[1]).item()
                 count+= 1
+        self.avgSSIM = self.SSIM/count
         return self.SSIM/count
 
     def reset_stats(self):
+        with open("val_SSIM.txt","a") as a:
+            a.write(str(self.avgSSIM))
         self.SSIM = 0
