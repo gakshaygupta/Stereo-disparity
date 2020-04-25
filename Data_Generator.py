@@ -16,7 +16,7 @@ except ImportError:
 class Dataset(data_util.Dataset):
   'Characterizes a dataset for PyTorch'
 
-  def __init__(self, input_left, input_right,output_left,output_right,validate=False,gama_range=[0.8,2.2],bright_range=[0.5,2],color_range=[0.8,1.2]):
+  def __init__(self, input_left, input_right,output_left,output_right,validate=False,test=False,gama_range=[0.8,2.2],bright_range=[0.5,2],color_range=[0.8,1.2]):
         self.input_left_id = path_gen(input_left, os.listdir(input_left))
         self.input_right_id = path_gen(input_right, os.listdir(input_right))
         self.output_left_id = path_gen(output_left, os.listdir(output_left)) #initially not using
@@ -24,6 +24,7 @@ class Dataset(data_util.Dataset):
         self.input_ID = list(zip(self.input_left_id,self.input_right_id))
         self.output_ID = list(zip(self.output_left_id,self.output_right_id))
         self.validate = validate
+        self.test = False
         self.gama_range = gama_range
         self.bright_range = bright_range
         self.color_range = color_range
@@ -74,15 +75,15 @@ class Dataset(data_util.Dataset):
         # data augmentation
 
         imgL,imgR = self.resize(imgL,(768,384)),self.resize(imgR,(768,384))
-        if not self.validate:
+        if not (self.validate or self.test):
             imgL,imgR = self.spatial_aug(imgL,imgR)
         imgL,imgR = self.normalizer(imgL), self.normalizer(imgR)
-        if not self.validate:
+        if not (self.validate or self.test):
             imgL,imgR = self.profile_aug(imgL,imgR)
         imgL,imgR = np.transpose(imgL, (2, 0, 1)),np.transpose(imgR, (2, 0, 1))
 
-        #y_left = self.normalizer(read(output_left_ID))
-        #y_right = self.resize(self.normalizer(read(output_right_ID)),(384,192))
+        y_left = self.resize(read(output_right_ID),(384,192))
+        y_right = self.resize(read(output_right_ID),(384,192))
 
         # if is_null(X):                                              #for debugging
         #     print('null value on index:{}'.format(input_left_ID))
@@ -90,7 +91,10 @@ class Dataset(data_util.Dataset):
         # if is_null(y_right):
         #     print('null value on index:{}'.format(input_left_ID))   #for debugging
         #     assert False
-        return imgL,imgR
+        if self.test:
+            return imgL,imgR,y_left,y_right
+        else:
+            return imgL,imgR
 
 def path_gen(path,paths):
     new_paths = []
@@ -99,7 +103,7 @@ def path_gen(path,paths):
     return new_paths
 def  is_null(a):
         np.isnan(a).any()
-        
+
 class Data_Generator():
     def __init__(self,Dataset, params, tpu, device, tpu_params = {}):
         self.Dataset = Dataset
