@@ -26,6 +26,7 @@ def main():
     # Data Pipieline Arguments
     data_pipeline_group = parser.add_argument_group("Data Pipeline","Let the user change the data pipeline arguments")
     data_pipeline_group.add_argument("--num_workers", type=int, default=1, help="number of workers to use to fetch the data into the ram")
+    data_pipeline_group.add_argument("--batch_size", type=int, default=10, help="batch size")
 
     # Model restoring
     model_restorin_group = parser.add_argument_group("Model Restoring","Let the user restore the saved model")
@@ -77,7 +78,7 @@ def main():
     DispNet_.load_state_dict(torch.load(args.model_pth)["model_state_dict"])
     DispNet_.eval()
     if not args.real_left=="":
-        params_validation = {'batch_size': args.batch_size_v,
+        params_validation = {'batch_size': args.batch_size,
               'shuffle': True ,
               'num_workers':  args.num_workers,
               'drop_last': True }
@@ -86,7 +87,20 @@ def main():
                               , output_left = args.disp_left
                               , output_right = args.disp_right
                               , validate = True)
-        data["validation"] = Data_Generator(val_dataset,params_validation,tpu=args.tpu,device= dev if args.tpu else None,tpu_params=tpu_params)
+        data["validation"] = Data_Generator(val_dataset,params_validation,tpu=args.tpu,device= dev if args.tpu else None)
+        data["validation"].reset_generator()
+        disp = None
+        for imgL,imgR in data["validation"].generator:
+            if disp!=None:
+                with torch.no_grad():
+                    disp = torch.cat([dispL,DispNet_.predict(imgL,imgR)],0)
+            else:
+                    disp = DispNet_.predict(imgR,imgL)
+        dispL = disp[:,0,:,:].squeeze(0)
+        dispR = disp[:,1,:,:].squeeze(0)
+        d = np.array(torch.cat([dispL,dispR],0).cpu())
+
+        np.save("img_tot.npy",d)
     else:
 
         def normalizer(data):
