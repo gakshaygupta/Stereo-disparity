@@ -87,10 +87,10 @@ def main():
                               , output_left = args.disp_left
                               , output_right = args.disp_right
                               , validate = True)
-        data["validation"] = Data_Generator(val_dataset,params_validation,tpu=args.tpu,device= dev if args.tpu else None)
-        data["validation"].reset_generator()
+        data = Data_Generator(val_dataset,params_validation,tpu=args.tpu,device= dev if args.tpu else None)
+        data.reset_generator()
         disp = None
-        for imgL,imgR in data["validation"].generator:
+        for imgL,imgR in data.generator:
             if disp!=None:
                 with torch.no_grad():
                     disp = torch.cat([dispL,DispNet_.predict(imgL,imgR)],0)
