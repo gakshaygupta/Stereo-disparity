@@ -81,9 +81,9 @@ class Dataset(data_util.Dataset):
         if not (self.validate or self.test):
             imgL,imgR = self.profile_aug(imgL,imgR)
         imgL,imgR = np.transpose(imgL, (2, 0, 1)),np.transpose(imgR, (2, 0, 1))
-
-        y_left = self.resize(read(output_right_ID),(384,192))
-        y_right = self.resize(read(output_right_ID),(384,192))
+        #
+        # y_left = self.resize(read(output_right_ID),(384,192))
+        # y_right = self.resize(read(output_right_ID),(384,192))
 
         # if is_null(X):                                              #for debugging
         #     print('null value on index:{}'.format(input_left_ID))
@@ -92,7 +92,7 @@ class Dataset(data_util.Dataset):
         #     print('null value on index:{}'.format(input_left_ID))   #for debugging
         #     assert False
         if self.test:
-            return imgL,imgR,y_left,y_right
+            return imgL,imgR#,y_left,y_right
         else:
             return imgL,imgR
 

@@ -93,12 +93,10 @@ def main():
         for imgL,imgR in data.generator:
             if disp!=None:
                 with torch.no_grad():
-                    disp = torch.cat([dispL,DispNet_.predict(imgL,imgR)],0)
+                    disp = torch.cat([disp,DispNet_.predict(imgL,imgR)],0)
             else:
-                    disp = DispNet_.predict(imgR,imgL)
-        dispL = disp[:,0,:,:].squeeze(0)
-        dispR = disp[:,1,:,:].squeeze(0)
-        d = np.array(torch.cat([dispL,dispR],0).cpu())
+                    disp = DispNet_.predict(imgL,imgR)
+        d = np.array(disp.cpu())
 
         np.save("img_tot.npy",d)
     else:
