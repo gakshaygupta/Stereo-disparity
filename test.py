@@ -79,25 +79,29 @@ def main():
     DispNet_.eval()
     if not args.real_left=="":
         params_validation = {'batch_size': args.batch_size,
-              'shuffle': True ,
+              'shuffle': False,
               'num_workers':  args.num_workers,
-              'drop_last': True }
+              'drop_last': False }
         val_dataset = Dataset(input_left = args.real_left
                               , input_right = args.real_right
                               , output_left = args.disp_left
                               , output_right = args.disp_right
-                              , validate = True)
+                              , validate = True
+                              , test = True)
         data = Data_Generator(val_dataset,params_validation,tpu=args.tpu,device= dev if args.tpu else None)
         data.reset_generator()
         disp = None
-        for imgL,imgR in data.generator:
+        indexs = 0
+        for imgL,imgR,index in data.generator:
             if disp!=None:
                 with torch.no_grad():
                     disp = torch.cat([disp,DispNet_.predict(imgL,imgR)],0)
+                indexs = torch.cat([indexs,index],0)
             else:
                     disp = DispNet_.predict(imgL,imgR)
+                    indexs = index
         d = np.array(disp.cpu())
-
+        np.save("indexes.npy",np.array(indexs.cpu()))
         np.save("img_tot.npy",d)
     else:
 

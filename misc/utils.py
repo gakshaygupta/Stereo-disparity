@@ -1,45 +1,6 @@
 import torch.nn as nn
 from torch.functional import F
 import torch
-# class BiLinear(nn.Module):
-#     def __init__(self,device, padding_mode='reflection'):
-#         super().__init__()
-#         self.padding_mode = padding_mode
-#         self.device = device
-#         self.shape = []
-#         self.X = []
-#         self.Y = []
-#         self.grid_sample = torch.nn.functional.grid_sample
-#     def forward(self, img, depth):
-#
-#         # img: the source image (where to sample pixels) -- [B, 3, H, W]
-#         # depth: depth map of the target image -- [B, 1, H, W]
-#         # Returns: Source image warped to the target image
-#         if not self.shape ==depth.size():
-#             b, _, h, w = depth.size()
-#             i_range = self.device(torch.linspace(0, 1.0,h,requires_grad = False)) # [1, H, W]  copy 0-height for w times : y coord
-#             j_range = self.device(torch.linspace(0, 1.0,w,requires_grad = False)) # [1, H, W]  copy 0-width for h times  : x coord
-#
-#             # pixel_coords = device(torch.stack((j_range, i_range), dim=1).float())  # [1, 2, H, W]
-#             # batch_pixel_coords = pixel_coords[:,:,:,:].expand(b,2,h,w).contiguous().view(b, 2, -1)  # [B, 2, H*W]
-#             X, Y = torch.meshgrid([i_range,j_range])
-#             X = X.expand(b,1,-1,-1) # [B, H*W]
-#             Y = Y.expand(b,1,-1,-1)
-#             self.X = X
-#             self.Y = Y
-#             X = X+depth
-#             X = X.squeeze(1)
-#             Y = Y.squeeze(1)
-#         else:
-#             X = self.X
-#             X+=depth
-#             Y = self.Y
-#                                                     # [B, H*W, 2]
-#         pixel_coords = torch.stack([X,Y],dim=3)  # [B, H, W, 2]
-#
-#         projected_img = self.grid_sample(img, pixel_coords, padding_mode=self.padding_mode)
-#
-#         return projected_img
 
 class BiLinear(nn.Module):
     def __init__(self,device, padding_mode='reflection'):
@@ -54,11 +15,8 @@ class BiLinear(nn.Module):
         # depth: depth map of the target image -- [B, 1, H, W]
         # Returns: Source image warped to the target image
         b, _, h, w = depth.size()
-        i_range = self.device(torch.linspace(-1, 1.0,h,requires_grad = False)) # [1, H, W]  copy 0-height for w times : y coord
-        j_range = self.device(torch.linspace(-1, 1.0,w,requires_grad = False)) # [1, H, W]  copy 0-width for h times  : x coord
-
-        # pixel_coords = device(torch.stack((j_range, i_range), dim=1).float())  # [1, 2, H, W]
-        # batch_pixel_coords = pixel_coords[:,:,:,:].expand(b,2,h,w).contiguous().view(b, 2, -1)  # [B, 2, H*W]
+        i_range = self.device(torch.linspace(-1, 1.0,h,requires_grad = False))
+        j_range = self.device(torch.linspace(-1, 1.0,w,requires_grad = False))
         Y ,X = torch.meshgrid([i_range,j_range])
         X = X.expand(b,1,-1,-1) # [B, H*W]
         Y = Y.expand(b,1,-1,-1)
@@ -68,7 +26,6 @@ class BiLinear(nn.Module):
         X = X.squeeze(1)
         Y = Y.squeeze(1)                            # [B, H*W, 2]
         pixel_coords = torch.stack([X,Y],dim=3)  # [B, H, W, 2]
-        self.p = pixel_coords
         projected_img = self.grid_sample(img, pixel_coords, padding_mode=self.padding_mode)
 
         return projected_img

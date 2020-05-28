@@ -24,7 +24,7 @@ class Dataset(data_util.Dataset):
         self.input_ID = list(zip(self.input_left_id,self.input_right_id))
         self.output_ID = list(zip(self.output_left_id,self.output_right_id))
         self.validate = validate
-        self.test = False
+        self.test = test
         self.gama_range = gama_range
         self.bright_range = bright_range
         self.color_range = color_range
@@ -92,7 +92,7 @@ class Dataset(data_util.Dataset):
         #     print('null value on index:{}'.format(input_left_ID))   #for debugging
         #     assert False
         if self.test:
-            return imgL,imgR#,y_left,y_right
+            return imgL,imgR,index
         else:
             return imgL,imgR
 
